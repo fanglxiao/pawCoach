@@ -1,6 +1,6 @@
 """事件对齐：把姿态 / 口令 / 奖励三条时间线合成「轮次」。
 
-纯规则，不引入模型（docs/CodePlan_DS.md 步骤 A7）。
+纯规则，不引入模型（docs/CodePlan_detail.md 步骤 A7）。
 - 每个 cue（口令）后找最近的 sit 段，组成一轮；
 - 计算 latency（反应延迟）/ hold（保持时长）/ reward_delay（奖励延迟）；
 - 无法配对的 cue / sit / reward 塞进 unpaired，作为反馈素材。

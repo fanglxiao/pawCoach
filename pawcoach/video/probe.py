@@ -1,6 +1,6 @@
 """视频读取与抽取：用 ffprobe/ffmpeg 命令行完成，不引入 opencv。
 
-设计说明（见 docs/CodePlan_DS.md 步骤 A3）：
+设计说明（见 docs/CodePlan_detail.md 步骤 A3）：
 - 用 `ffprobe -print_format json` 读时长/fps/尺寸/是否含音轨；
 - 用 `ffmpeg` 抽帧、提音频；
 - 阶段 A 不引入 opencv 读帧，降低环境风险；B 阶段需要逐帧像素时再加。

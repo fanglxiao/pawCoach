@@ -1,6 +1,6 @@
 """PawCoach 命令行入口。
 
-子命令（见 docs/CodePlan_DS.md）：
+子命令（见 docs/CodePlan_detail.md）：
 - probe   : 打印视频时长 / fps / 帧数 / 是否含音轨（步骤 A3）
 - analyze : 视频 → JSON → 教练建议 全链路（步骤 A9）
 

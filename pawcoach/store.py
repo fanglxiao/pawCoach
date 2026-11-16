@@ -1,7 +1,7 @@
 """结果落库（SQLite）——数据飞轮从这里埋点。
 
 表结构预留 reviewer_correction / reviewer_agrees / risk_flag / referral_outcome，
-见 docs/CodePlan_DS.md §5。
+见 docs/CodePlan_detail.md §5。
 """
 
 from __future__ import annotations

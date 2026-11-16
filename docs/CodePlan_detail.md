@@ -1,4 +1,4 @@
-# PawCoach MVP 开发计划（DS 综合版 · 跑通优先 · 按工时推进）
+# PawCoach MVP 开发计划（详细版 · 跑通优先 · 按工时推进）
 
 > 依据：[research.md](research.md)、[pet-training-agent-technical-resources.md](pet-training-agent-technical-resources.md)、[datasets-and-papers.md](datasets-and-papers.md)。
 > 定位：Hackathon MVP，只做「坐下 + 等待保持（Sit-Stay）」一个场景，只用公开/可授权数据。
@@ -574,7 +574,7 @@ pawCoach/
 
 ## 附：与既有 CodePlan.md 的关键差异
 
-| 维度 | 既有 CodePlan.md | 本计划（DS 综合版 · 跑通优先 · 按工时） |
+| 维度 | 既有 CodePlan.md | 本计划（详细版 · 跑通优先 · 按工时） |
 |---|---|---|
 | 首要目标 | 分阶段验证假设（准确率是门槛） | **跑通链路**（准确率是记录项，不是门槛） |
 | 验收 | 准确率阈值（如 hold 误差 ≤1s ≥80%） | **一条命令 + 可见产出 + 字段齐全** |
