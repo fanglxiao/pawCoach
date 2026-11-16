@@ -17,7 +17,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 | 阶段 | 内容 | 进度 |
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
-| B | 换真实现（姿态、口令、奖励合并） | 1 / 8 完成（B1） |
+| B | 换真实现（姿态、口令、奖励合并） | 2 / 8 完成（B1、B2） |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
 | D | 演示与准备 | 0 / 4，未开始 |
 
@@ -42,7 +42,8 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 
 | 步骤 | 内容 | commit | 验收结果 |
 |---|---|---|---|
-| B1 | SuperAnimal 安装 + 关键点推理 | 见 git log | `reports/pose_keypoints_sample.png` 已生成，8 帧里关键点基本贴在狗身上；`dog2.mp4` 518 帧每帧都检测到了狗，平均置信度 0.50。详见 [reports/B1.md](../reports/B1.md) |
+| B1 | SuperAnimal 安装 + 关键点推理 | `09102c4`、`7a18c70` | `reports/pose_keypoints_sample.png` 已生成，8 帧里关键点基本贴在狗身上；`dog2.mp4` 518 帧每帧都检测到了狗，平均置信度 0.50。详见 [reports/B1.md](../reports/B1.md) |
+| B2 | 姿态规则判坐、站、卧 + 时序平滑 | 见 git log | 侧面视频 `dog3.mp4` 逐秒对人工标注 44/50（88%），30 个「坐」全对；正面视频 `dog2.mp4` 全部降级成 `unclear`（1/13）；片段时长之和等于视频时长；`tests/` 共 24 个用例通过。详见 [reports/B2.md](../reports/B2.md) |
 
 ## 各模块真假状态
 
@@ -54,7 +55,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 事件对齐 | 纯规则 `align()` | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
 | 教练建议 | `TemplateCoach` 固定文本，`ClaudeCoach` 无 key 时兜底 | 模板文本 |
-| 姿态 | `StubPoseExtractor`，整段视频算一次 `sit`。SuperAnimal 关键点推理已在 B1 跑通，但只是独立脚本，还没有判坐、站、卧的规则，也没接进 `analyze` | **stub** |
+| 姿态 | `StubPoseExtractor`，整段视频算一次 `sit`。`SuperAnimalPoseExtractor`（B2）已写好，能读 SuperAnimal 关键点判坐、站、卧，侧面视频上可用，正面视频降级成 `unclear`；但还没接进 `analyze`（B4 接） | **stub**（真实现已写好，未接入） |
 | 口令 | `StubAudioExtractor`，硬编码一组 cue、marker、release | **stub** |
 
 ## 真实视频验证
@@ -76,6 +77,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 真实狗视频（YouTube，CC BY，供 B1 验证姿态） | `data/raw/dog2.mp4`（正面为主，17.5 秒），来源与许可记在 `data/sources.csv` |
 | 真实狗视频（YouTube，CC BY，侧面坐、起身，供 B2 验证判坐规则） | `data/raw/dog3.mp4`（404x720，55.5 秒，已裁掉黑边），来源与许可记在 `data/sources.csv` |
 | SuperAnimal 关键点结果 | `data/pose/*.h5`，验收图在 `reports/pose_keypoints_sample.png`（dog2）、`reports/pose_keypoints_dog3.png`（dog3） |
+| 姿态人工标注（B2 评估用，会提交） | `tests/fixtures/dog2_pose_labels.json`、`dog3_pose_labels.json`；标注用的对照图在 `data/labels/`（本机） |
 | 分析结果 JSON | `results/sample.json`、`results/dog1.json` |
 | 落库 | `data/pawcoach.db` 的 `analyses` 表，`payload` 列存完整结果 |
 
@@ -92,8 +94,10 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 9. 阶段 B 要用单独的 Python 3.12 环境 `.venv-b`：deeplabcut 3.0.2 只支持到 3.12，而 `.venv` 是 3.13。两个环境不能混用，`analyze` 后续接入 SuperAnimal 时要处理这个问题（比如把姿态推理放进子进程，或把整个项目迁到 3.12）。
 10. SuperAnimal 推理速度：17.3 秒视频（518 帧）在 Apple 芯片 MPS 上用时 77.9 秒，约 4.5 倍实时。按这个速度 60 秒视频只姿态一项就要约 4.5 分钟，超过 D3 的「全流程 3 分钟」目标，需要降采样帧率、换小检测器或上 GPU。
 11. 关键点在狗位于画面边缘、被手挡住、转身或快速起身时会错位，B2 的规则必须用置信度过滤这类帧。另外，狗不在画面里的帧（`dog3.mp4` 的片尾黑屏）仍有不少关键点置信度大于 0.3，只靠置信度判断「狗在不在」不可靠。
-12. 判坐用的信号（`tail_base_y - neck_base_y`）只在 `dog3.mp4` 的 8 个时刻对照画面看过，坐着时差值 128 到 205 像素，其他姿态在 -50 到 34 之间，能分开，但没有逐帧标注，不是准确率。像素差随狗在画面里的大小变化，必须按体长归一化。正面视角下这个信号没验证。
+12. 判坐用的信号（体轴倾角 `(tail_base_y - neck_base_y) / 体长`）在 `dog3.mp4`（侧面）上坐和站分得开（坐 0.83 到 0.97，站 -0.78 到 0.54），但只有这一只狗。正面视角下信号不可用，B2 把正面或背面降级成 `unclear`，所以正面拍摄的视频算不出保持时长。详见 [reports/B2.md](../reports/B2.md)。
+13. B2 的趴下（`down`）规则没有任何真实视频验证，只有合成关键点的单测。
+14. `SuperAnimalPoseExtractor` 读 H5 需要 pandas，只在 `.venv-b` 里有；接进 `analyze` 时要处理两个 Python 环境，另外要核对 H5 是对原视频还是对标准化后的视频跑的，坐标要对得上。
 
 ## 下一步
 
-按计划做 B2：写 `SuperAnimalPoseExtractor`，用关键点相对高度和角度判坐、站、卧，加时序平滑。侧面视频 `dog3.mp4` 已备好，B2 可以用它验证规则。三点要注意：高度差要用体长归一化；不能只靠关键点置信度判断狗在不在画面里；正面视角（dog2）怎么处理还没想好。
+按计划做 B3：用 YOLO 检测狗，判断狗在不在画面里（B1、B2 都发现只靠关键点置信度判断不了这件事），再做 B4 把 `SuperAnimalPoseExtractor` 接进 `analyze`。
