@@ -65,6 +65,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 |---|---|
 | 合成样例视频（30 秒，无狗） | `data/raw/sample.mp4`、`data/raw/sample.meta.json` |
 | 真实狗视频（B 站，仅本机验证用） | `data/raw/dog1.mp4` |
+| 真实狗视频（YouTube，CC BY，供 B1 验证姿态） | `data/raw/dog2.mp4`，来源与许可记在 `data/sources.csv` |
 | 分析结果 JSON | `results/sample.json`、`results/dog1.json` |
 | 落库 | `data/pawcoach.db` 的 `analyses` 表，`payload` 列存完整结果 |
 
@@ -73,8 +74,8 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 1. `pytest` 没写进 `requirements.txt`，新环境按 requirements 安装后跑不了 A7 的测试。
 2. `ClaudeCoach` 的真实 API 调用路径没验证过。本机没有 `ANTHROPIC_API_KEY`，只验证了兜底分支。
 3. `yt-dlp` 只装在 `.venv` 里，没有写进 requirements。
-4. 这台机器直连不了 GitHub、HuggingFace、Wikimedia Commons，国内站点可用。B1 下载 SuperAnimal 权重时需要镜像或代理。
-5. 真实视频目前只有一段带字幕的教学视频，还没有适合做基线的干净 Sit-Stay 视频。
+4. 网络：这台机器直连不了 GitHub、HuggingFace、Wikimedia Commons、Google，国内站点（B 站、清华 PyPI 镜像）可直连。国外站点要走本机代理 `127.0.0.1:7892`（macOS 系统代理已开启，HTTP、HTTPS、SOCKS 同一端口），但终端环境变量没有设代理，命令默认不会走它，需要显式指定，例如 `curl -x http://127.0.0.1:7892`、`yt-dlp --proxy http://127.0.0.1:7892`。已验证经代理可访问 GitHub、HuggingFace、Wikimedia Commons、Google、YouTube。代理软件没启动时国外站点会超时，所以 B1 下载 SuperAnimal 权重前要先确认代理在运行。
+5. 真实视频还没有一段是干净的「口令、坐下、保持、释放」完整过程。`dog1.mp4` 带字幕和讲解；`dog2.mp4`（比利时牧羊犬幼犬，单镜头，17.5 秒）是手势引导坐下，没有保持和释放，只适合验证姿态识别，保持时长没有真值可对。Wikimedia Commons 里没找到坐下训练类视频。
 6. 复核字段 `reviewer_correction`、`risk_flag` 等只在表里预留，还没有写入逻辑。
 
 ## 下一步
