@@ -20,9 +20,11 @@ ultralytics             # B3 YOLO 狗检测。不会替换 torch，会带入 ope
 #       https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt
 # mmpose                 # 备选：AP-10K/APT-36K 权重，SuperAnimal 不可用时才装
 
-# B5~B7 口令：FunASR（中文）或 Whisper（英文）
-# funasr
-# openai-whisper
+# B5~B7 口令：Whisper（中英文都用它，实测 dog1 中文、dog3 英文都转得可用）
+openai-whisper          # 会带入 more-itertools、regex、tiktoken，不碰 torch
+# funasr                # 不装：会拉 24 个包（transformers、tokenizers 等一整套），
+#                         Whisper 中英文都够用，见 reports/B5.md
+# Whisper 模型（base，139MB）首次运行自动下载到 ~/.cache/whisper，国外站点要先 export https_proxy
 
 # B8 奖励（可选）：MediaPipe Hands
 # mediapipe

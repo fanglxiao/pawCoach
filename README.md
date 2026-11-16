@@ -11,7 +11,7 @@
 ## 文档
 
 - **[MVP 开发计划（跑通优先 · 按工时）](docs/CodePlan_detail.md)** ← 执行入口
-- [开发进度](docs/PROGRESS.md)（当前：阶段 A 完成，阶段 B 做完 B1～B4，下一步 B5）
+- [开发进度](docs/PROGRESS.md)（当前：阶段 A 完成，阶段 B 做完 B1～B5，下一步 B6）
 - [CodePlan（风险优先版）](docs/CodePlan.md)
 - [数据集与论文调研](docs/datasets-and-papers.md)（最全，含许可红线与实测核对）
 - [技术资源精选](docs/pet-training-agent-technical-resources.md)

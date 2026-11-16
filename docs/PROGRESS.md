@@ -10,14 +10,14 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里口令仍是 stub，姿态和奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1～B4 完成，SuperAnimal 关键点推理、判坐站卧的规则、狗检测都已接进 `analyze`——在 `.venv-b`（3.12）里跑真姿态，在 `.venv`（3.13）里自动回退 stub。
+当前链路里口令仍是 stub，姿态和奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1～B5 完成——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令转写还在独立脚本阶段，等 B6 写 `AsrAudioExtractor` 后接进 `analyze`。
 
 ## 总览
 
 | 阶段 | 内容 | 进度 |
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
-| B | 换真实现（姿态、口令、奖励合并） | 4 / 8 完成（B1～B4） |
+| B | 换真实现（姿态、口令、奖励合并） | 5 / 8 完成（B1～B5） |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
 | D | 演示与准备 | 0 / 4，未开始 |
 
@@ -44,8 +44,9 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 |---|---|---|---|
 | B1 | SuperAnimal 安装 + 关键点推理 | `09102c4`、`7a18c70` | `reports/pose_keypoints_sample.png` 已生成，8 帧里关键点基本贴在狗身上；`dog2.mp4` 518 帧每帧都检测到了狗，平均置信度 0.50。详见 [reports/B1.md](../reports/B1.md) |
 | B2 | 姿态规则判坐、站、卧 + 时序平滑 | 见 git log | 侧面视频 `dog3.mp4` 逐秒对人工标注 44/50（88%），30 个「坐」全对；正面视频 `dog2.mp4` 全部降级成 `unclear`（1/13）；片段时长之和等于视频时长；`tests/` 共 24 个用例通过。详见 [reports/B2.md](../reports/B2.md) |
-| B4 | 姿态换真 + 跑通 + 记基线 | 见 git log | `.venv-b` 里 `analyze` 用 SuperAnimal 真实现、`.venv` 里回退 stub；dog3 出 1 轮 `hold=5.63s`、`ended_by=stand_up`，时间轴与肉眼看一致；35 个单测全过。详见 [reports/B4.md](../reports/B4.md) |
 | B3 | 狗检测与主狗跟踪 | 见 git log | 用 YOLOv8n 的 cat+dog 类找主狗，判断狗在不在画面；对 B2 的人工标注 dog3 50/50、dog2 13/13（贴边阈值是对着 dog3 调的）；dog3、dog1 里狗离开画面的区间都标出来了；`tests/` 共 35 个用例通过。详见 [reports/B3.md](../reports/B3.md) |
+| B4 | 姿态换真 + 跑通 + 记基线 | 见 git log | `.venv-b` 里 `analyze` 用 SuperAnimal 真实现、`.venv` 里回退 stub；dog3 出 1 轮 `hold=5.63s`、`ended_by=stand_up`，时间轴与肉眼看一致；35 个单测全过。详见 [reports/B4.md](../reports/B4.md) |
+| B5 | 口令识别（Whisper）安装 | 见 git log | whisper base 装进 `.venv-b`，dog3（英文）和 dog1（中文）都转出带时间戳的转写；funasr 按计划「只留 Whisper 兜底」分支不装；sample 无语音是负样本。详见 [reports/B5.md](../reports/B5.md) |
 
 ## 各模块真假状态
 
@@ -58,7 +59,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
 | 教练建议 | `TemplateCoach` 固定文本，`ClaudeCoach` 无 key 时兜底 | 模板文本 |
 | 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |
-| 口令 | `StubAudioExtractor`，硬编码一组 cue、marker、release | **stub** |
+| 口令 | `StubAudioExtractor`，硬编码一组 cue、marker、release。Whisper base 已装进 `.venv-b` 并跑通转写（B5），但 `AsrAudioExtractor` 还没写、没接进 `analyze` | **stub**（真实现待 B6） |
 
 ## 真实视频验证
 
@@ -79,6 +80,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 真实狗视频（YouTube，CC BY，供 B1 验证姿态） | `data/raw/dog2.mp4`（正面为主，17.5 秒），来源与许可记在 `data/sources.csv` |
 | 真实狗视频（YouTube，CC BY，侧面坐、起身，供 B2 验证判坐规则） | `data/raw/dog3.mp4`（404x720，55.5 秒，已裁掉黑边），来源与许可记在 `data/sources.csv` |
 | 狗检测结果、权重 | `data/pose/*_dogbox.npy`（每帧主狗框）、`data/models/yolov8n.pt`（6.5MB，下载命令见 `requirements-b.txt`），框叠加图在 `reports/dog_boxes_dog1/2/3.png` |
+| 口令转写结果 | `data/asr/dog1.json`、`dog3.json`（whisper base 转写缓存，B6 复用），whisper 模型在 `~/.cache/whisper` |
 | SuperAnimal 关键点结果 | `data/pose/*.h5`，验收图在 `reports/pose_keypoints_sample.png`（dog2）、`reports/pose_keypoints_dog3.png`（dog3） |
 | 姿态人工标注（B2 评估用，会提交） | `tests/fixtures/dog2_pose_labels.json`、`dog3_pose_labels.json`；标注用的对照图在 `data/labels/`（本机） |
 | 分析结果 JSON | `results/sample.json`、`results/dog1.json` |
@@ -104,4 +106,4 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 
 ## 下一步
 
-按计划做 B5：装口令识别（FunASR 中文或 Whisper 英文），先解决安装这个环境风险。
+按计划做 B6：写 `AsrAudioExtractor`，读 whisper 转写缓存，用 `meta.cues/marker_words/release_words` 做关键词匹配（带同音表），输出 `AudioEvent[]`。注意 whisper 把 "sit" 转成 "Sats"、"坐" 转成 "做"，匹配不能精确相等。
