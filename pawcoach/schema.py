@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
 
 # 狗姿态标签：sit 坐 / stand 站 / down 卧 / unclear 看不清
 PoseLabel = Literal["sit", "stand", "down", "unclear"]
@@ -35,6 +38,19 @@ class MetaInfo:
     marker_words: list[str] = field(default_factory=list)  # 标记词，如 ["好", "对"]
     release_words: list[str] = field(default_factory=list) # 释放词，如 ["可以了", "走"]
     reward_taps: list[float] = field(default_factory=list) # 手动打点的奖励时刻（秒）
+
+
+class MetaModel(BaseModel):
+    """meta.json 的 pydantic 校验模型（步骤 A5）。字段与 MetaInfo 一一对应。
+
+    meta.json 是用户录视频/上传时填写的输入，用它做类型校验与默认值补全；
+    校验通过后再转成全链路契约里的 MetaInfo（dataclass）。
+    """
+
+    cues: list[str] = Field(default_factory=list)          # 训练口令词
+    marker_words: list[str] = Field(default_factory=list)  # 标记词
+    release_words: list[str] = Field(default_factory=list) # 释放词
+    reward_taps: list[float] = Field(default_factory=list) # 手动打点奖励时刻（秒）
 
 
 @dataclass
@@ -115,3 +131,19 @@ class AnalysisResult:
 def to_json(result: AnalysisResult) -> str:
     """把结果序列化为带缩进、非 ASCII 的 JSON 字符串。"""
     return json.dumps(asdict(result), ensure_ascii=False, indent=2)
+
+
+def load_meta(path: str | Path) -> MetaInfo:
+    """读取并校验 data/raw/<id>.meta.json，返回 MetaInfo。
+
+    用 pydantic（MetaModel）校验字段与类型，缺失字段按默认值补全；
+    非法类型（如 reward_taps 里混入字符串）会抛出 pydantic 的 ValidationError。
+    """
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    m = MetaModel.model_validate(raw)
+    return MetaInfo(
+        cues=m.cues,
+        marker_words=m.marker_words,
+        release_words=m.release_words,
+        reward_taps=m.reward_taps,
+    )
