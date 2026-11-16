@@ -16,7 +16,10 @@ from pathlib import Path
 
 @dataclass
 class VideoInfo:
-    """一段视频的可测量元信息。"""
+    """一段视频的可测量元信息。
+
+    width/height 是编码尺寸（旋转前）；播放时的显示尺寸见 display_size。
+    """
 
     path: str
     duration: float   # 秒
@@ -25,6 +28,16 @@ class VideoInfo:
     height: int
     has_audio: bool
     n_frames: int     # 估算帧数 = round(duration * fps)
+    codec: str = ""           # 视频编码，如 h264 / hevc
+    rotation: int = 0         # 播放时需顺时针旋转的角度：0/90/180/270（手机竖拍常见 90/270）
+    is_vfr: bool = False      # 是否可变帧率（手机视频常见）
+
+    @property
+    def display_size(self) -> tuple[int, int]:
+        """按旋转信息摆正后的显示宽高。"""
+        if self.rotation in (90, 270):
+            return self.height, self.width
+        return self.width, self.height
 
 
 def _run(cmd: list[str]) -> str:
@@ -52,8 +65,27 @@ def _parse_fps(raw: str | None) -> float:
         return 0.0
 
 
+def _parse_rotation(stream: dict) -> int:
+    """读取视频流的旋转角，归一化到 0/90/180/270（顺时针，播放时需旋转的角度）。
+
+    新版 ffprobe 把旋转放在 side_data_list 的 Display Matrix（rotation 为逆时针角度，
+    符号相反）；老版本放在 tags.rotate。两处都读，取到哪个用哪个。
+    """
+    for sd in stream.get("side_data_list", []) or []:
+        if "rotation" in sd:
+            # ffprobe 的 rotation 是「逆时针旋转多少度才能摆正」，取负得到顺时针需旋转的角度
+            return int(round(-float(sd["rotation"]))) % 360
+    rotate = (stream.get("tags") or {}).get("rotate")
+    if rotate is not None:
+        try:
+            return int(round(float(rotate))) % 360
+        except ValueError:
+            return 0
+    return 0
+
+
 def load_video(path: str | Path) -> VideoInfo:
-    """用 ffprobe 读取视频的时长/fps/尺寸/是否含音轨。"""
+    """用 ffprobe 读取视频的时长/fps/尺寸/是否含音轨，以及编码、旋转、是否变帧率。"""
     path = str(path)
     out = _run([
         "ffprobe", "-v", "error",
@@ -74,10 +106,14 @@ def load_video(path: str | Path) -> VideoInfo:
     # 时长：优先 format.duration，回退到视频流 duration
     duration = float(fmt.get("duration") or video.get("duration") or 0.0)
 
-    fps = _parse_fps(video.get("avg_frame_rate")) or _parse_fps(video.get("r_frame_rate"))
+    avg_fps = _parse_fps(video.get("avg_frame_rate"))
+    nominal_fps = _parse_fps(video.get("r_frame_rate"))
+    fps = avg_fps or nominal_fps
     width = int(video.get("width", 0))
     height = int(video.get("height", 0))
     n_frames = int(round(duration * fps)) if fps > 0 else 0
+    # 平均帧率明显低于标称帧率，说明帧间隔不均匀，按变帧率处理（阈值 2% 避开取整误差）
+    is_vfr = avg_fps > 0 and nominal_fps > 0 and abs(avg_fps - nominal_fps) / nominal_fps > 0.02
 
     return VideoInfo(
         path=path,
@@ -87,6 +123,9 @@ def load_video(path: str | Path) -> VideoInfo:
         height=height,
         has_audio=has_audio,
         n_frames=n_frames,
+        codec=str(video.get("codec_name", "")),
+        rotation=_parse_rotation(video),
+        is_vfr=is_vfr,
     )
 
 

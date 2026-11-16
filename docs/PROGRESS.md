@@ -10,13 +10,13 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里姿态和口令仍是 stub，只有奖励打点是真实现。下一步是阶段 B，把姿态和口令换成真实现。
+当前链路里姿态和口令仍是 stub，只有奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。下一步是阶段 B，把姿态和口令换成真实现。
 
 ## 总览
 
 | 阶段 | 内容 | 进度 |
 |---|---|---|
-| A | 骨架与全链路跑通 | 9 / 9 完成 |
+| A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
 | B | 换真实现（姿态、口令、奖励合并） | 0 / 8，未开始 |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
 | D | 演示与准备 | 0 / 4，未开始 |
@@ -34,14 +34,16 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 | A7 | `events/align.py` 对齐 | `0d57286` | `tests/test_align.py` 2 个用例通过 |
 | A8 | `coach`（Template + Claude 兜底） | `6bc88c0` | Template 返回非空，Claude 无 key 兜底不抛异常 |
 | A9 | `analyze` 命令 + `store.py` 落库 | `50830a2` | 输出 JSON 含 `video_id/quality/trials/summary/unpaired/coach` |
+| A10 | 视频标准化（手机 HEVC、竖屏旋转、变帧率） | 见 git log | 合成的 iPhone 风格素材转成 H.264、rotation=0、固定 30fps、方向摆正；`tests/` 共 12 个用例通过 |
 
-A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过。
+A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过。A10 验收见 [reports/A10.md](../reports/A10.md)。
 
 ## 各模块真假状态
 
 | 模块 | 当前实现 | 是否真实 |
 |---|---|---|
 | 视频读取（probe、抽帧、抽音频） | ffmpeg | 真实 |
+| 视频标准化 | ffmpeg 转 H.264、固定 30fps、方向摆正；已符合标准则不转码 | 真实，只用合成素材验证过，没有真实 iPhone 或安卓视频 |
 | 奖励打点 | 读 `meta.reward_taps` | 真实 |
 | 事件对齐 | 纯规则 `align()` | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
@@ -77,6 +79,8 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 4. 网络：这台机器直连不了 GitHub、HuggingFace、Wikimedia Commons、Google，国内站点（B 站、清华 PyPI 镜像）可直连。国外站点要走本机代理 `127.0.0.1:7892`（macOS 系统代理已开启，HTTP、HTTPS、SOCKS 同一端口），但终端环境变量没有设代理，命令默认不会走它，需要显式指定，例如 `curl -x http://127.0.0.1:7892`、`yt-dlp --proxy http://127.0.0.1:7892`。已验证经代理可访问 GitHub、HuggingFace、Wikimedia Commons、Google、YouTube。代理软件没启动时国外站点会超时，所以 B1 下载 SuperAnimal 权重前要先确认代理在运行。
 5. 真实视频还没有一段是干净的「口令、坐下、保持、释放」完整过程。`dog1.mp4` 带字幕和讲解；`dog2.mp4`（比利时牧羊犬幼犬，单镜头，17.5 秒）是手势引导坐下，没有保持和释放，只适合验证姿态识别，保持时长没有真值可对。Wikimedia Commons 里没找到坐下训练类视频。
 6. 复核字段 `reviewer_correction`、`risk_flag` 等只在表里预留，还没有写入逻辑。
+7. 视频标准化只用合成素材验证过，没有真实 iPhone 或安卓视频。HDR（10-bit）、杜比视界、实况照片等情况没处理。标准化会把音轨压成 16kHz 单声道，原始音质不保留。
+8. `data/normalized/` 里的标准化产物不会自动清理，会随分析量增长。
 
 ## 下一步
 

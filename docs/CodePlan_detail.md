@@ -174,6 +174,7 @@ def to_json(result: AnalysisResult) -> str:
 | **A7** | `events/align.py` 对齐 | 2h |
 | **A8** | `coach`（Template + Claude 兜底） | 1.5h |
 | **A9** | `analyze` 命令 + `store.py` 落库 | 1.5～2h |
+| **A10** | 视频标准化（手机 HEVC / 竖屏旋转 / 变帧率） | 1～1.5h |
 
 #### A1 · 初始化环境（⏱ 1～1.5h）
 
@@ -286,6 +287,23 @@ python -c "import json;d=json.load(open('results/sample.json'));print(set(d.keys
 ```
 
 > 到这里你就「跑通」了。B、C 阶段每步都是「换一个组件 + 重跑这条命令 + 记录一条基线」。
+
+#### A10 · 视频标准化（⏱ 1～1.5h）
+
+> 背景：产品目标平台是安卓和 iOS，输入是手机拍的视频，格式比样例视频杂。放在 B1 之前做，避免姿态推理拿到方向错误或编码不兼容的画面。
+
+手机视频的三个常见问题：iPhone 默认 HEVC（`.mov`）；竖拍靠旋转元数据（displaymatrix）标记方向；可变帧率（VFR）会让按帧序号换算的时间漂移。
+
+- `pawcoach/video/probe.py`：`VideoInfo` 增加 `codec`、`rotation`、`is_vfr` 与 `display_size`；`load_video` 解析旋转（新版 side_data 与旧版 `tags.rotate` 都读）和变帧率（平均帧率与标称帧率差超过 2%）。
+- `pawcoach/video/normalize.py`：`needs_normalize` 给出需要转码的原因；`normalize_video` 转成 H.264 + yuv420p + 固定 30fps + 方向摆正 + 长边不超过 1280；已符合标准则原样复用，不转码。
+- `pawcoach/cli.py`：新增 `normalize` 子命令；`analyze` 开头自动标准化，产物放 `data/normalized/`。
+
+**验收**：
+```bash
+python -m pawcoach.cli probe <手机视频>        # 能看到 codec / rotation / vfr
+python -m pawcoach.cli normalize <手机视频>    # 打印转码原因；输出 H.264、rotation=0、固定 30fps
+python -m pytest tests/test_normalize.py
+```
 
 ---
 
@@ -517,6 +535,7 @@ pawCoach/
 ├── docs/                    # 调研与计划（含本文件）
 ├── data/                    # 不提交版本库
 │   ├── raw/                 # 视频片段 + 同名 .meta.json
+│   ├── normalized/          # 标准化后的视频（H.264、固定帧率、方向摆正）
 │   ├── labels/              # 人工标注 JSON
 │   ├── sources.csv          # 链接/作者/许可/时间段
 │   ├── review_queue/        # 低置信度样本（数据飞轮）
@@ -526,7 +545,7 @@ pawCoach/
 │   ├── cli.py               # probe / analyze / eval 子命令
 │   ├── schema.py            # §1.2 数据结构（合约）
 │   ├── store.py             # SQLite 落库
-│   ├── video/               # 解码、抽帧、提音频、质量检查
+│   ├── video/               # 解码、标准化（normalize.py）、抽帧、提音频、质量检查
 │   ├── pose/                # base.py + stub.py + superanimal.py
 │   ├── audio/               # base.py + stub.py + asr.py
 │   ├── reward/              # base.py + from_taps.py + merged.py
@@ -562,7 +581,7 @@ pawCoach/
 
 | 阶段 | 步骤 | 合计工时 | 结束时手上要有 |
 |---|---|---|---|
-| A 骨架与跑通 | A1～A9 | 12～16h | **一条命令跑通全链路**，`results/sample.json` 字段齐全 |
+| A 骨架与跑通 | A1～A10 | 13～17.5h | **一条命令跑通全链路**，`results/sample.json` 字段齐全；手机视频能标准化 |
 | B 换真实现 | B1～B8 | 14～20h | 真姿态/真口令/真奖励，`reports/B*.md` 基线齐全 |
 | C 判定+处方+安全 | C1～C5 | 8～12h | 置信度门控、规则、Claude 建议、安全转介、30 用例报告 |
 | D 演示与准备 | D1～D4 | 6～9h | 网页上传演示 + 彩排通过 |
