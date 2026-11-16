@@ -1,0 +1,15 @@
+# PawCoach 依赖（阶段 B：换真实现，按步骤单独安装）
+# 每个步骤只装自己需要的，别一次性全装（这是环境安装的主要风险点）。
+
+# B1~B4 姿态：SuperAnimal（首选）或 mmpose（备选）
+# torch
+# ultralytics            # YOLO 狗检测
+# deeplabcut             # SuperAnimal 关键点（首选）
+# mmpose                 # AP-10K/APT-36K 权重（备选）
+
+# B5~B7 口令：FunASR（中文）或 Whisper（英文）
+# funasr
+# openai-whisper
+
+# B8 奖励（可选）：MediaPipe Hands
+# mediapipe
