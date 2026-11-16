@@ -170,9 +170,18 @@ def to_segments(labels: list[PoseLabel], confs: np.ndarray, fps: float) -> list[
     return segs
 
 
-def keypoints_to_segments(kp: Keypoints, rules: PoseRules | None = None) -> list[PoseSegment]:
+def keypoints_to_segments(
+    kp: Keypoints, rules: PoseRules | None = None, in_frame: np.ndarray | None = None
+) -> list[PoseSegment]:
+    """in_frame：每帧「狗完整在画面里」（B3 检测得出）。为 False 的帧一律 unclear，不管关键点怎么说。
+    长度和关键点帧数不一致时，缺的帧按「不在画面」处理，多的丢掉。"""
     rules = rules or PoseRules()
     labels, confs = classify_frames(kp, rules)
+    if in_frame is not None:
+        mask = np.zeros(len(labels), dtype=bool)
+        k = min(len(labels), len(in_frame))
+        mask[:k] = in_frame[:k]
+        labels = [lab if mask[i] else "unclear" for i, lab in enumerate(labels)]
     voted = majority_vote(labels, max(1, round(rules.window_s * kp.fps)))
     smooth = absorb_short_runs(voted, max(1, round(rules.min_segment_s * kp.fps)))
     return to_segments(smooth, confs, kp.fps)

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
+from pawcoach.pose.detect import detect_main_dog, in_frame_mask
 from pawcoach.pose.rules import Keypoints, PoseRules, keypoints_to_segments
 from pawcoach.schema import PoseSegment
 from pawcoach.video.probe import VideoInfo
@@ -91,12 +92,16 @@ class SuperAnimalPoseExtractor:
         run_if_missing: bool = True,
         model: str = DEFAULT_MODEL,
         detector: str = DEFAULT_DETECTOR,
+        use_detection: bool = True,
     ):
         self.pose_dir = Path(pose_dir)
         self.rules = rules or PoseRules()
         self.run_if_missing = run_if_missing
         self.model = model
         self.detector = detector
+        # B3：用 YOLO 检测框判断狗在不在画面里，不在的帧标 unclear。
+        # 检测结果缓存在 data/pose/<视频名>_dogbox.npy；有缓存时 .venv 里不装 ultralytics 也能用。
+        self.use_detection = use_detection
 
     def extract(self, video: VideoInfo) -> list[PoseSegment]:
         path = Path(video.path)
@@ -107,4 +112,8 @@ class SuperAnimalPoseExtractor:
                 raise
             h5 = run_inference(path, self.pose_dir, self.model, self.detector)
         kp = load_keypoints(h5, video.fps, *video.display_size)
-        return keypoints_to_segments(kp, self.rules)
+        in_frame = None
+        if self.use_detection:
+            track = detect_main_dog(path, self.pose_dir, use_cache=True)
+            in_frame = in_frame_mask(track, video.fps, *video.display_size)
+        return keypoints_to_segments(kp, self.rules, in_frame)

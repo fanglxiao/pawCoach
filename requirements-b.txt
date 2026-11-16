@@ -13,7 +13,11 @@
 deeplabcut>=3.0         # 会带入 torch 2.x、torchvision、timm、pandas、tables 等
 pydantic
 httpx
-# ultralytics            # B3 YOLO 狗检测，到 B3 再装
+ultralytics             # B3 YOLO 狗检测。不会替换 torch，会带入 opencv-python、polars 等
+# B3 的权重要单独下载（国外站点走代理），放在 data/models/（已被 gitignore）：
+#   mkdir -p data/models
+#   curl -x http://127.0.0.1:7892 -L -o data/models/yolov8n.pt \
+#       https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt
 # mmpose                 # 备选：AP-10K/APT-36K 权重，SuperAnimal 不可用时才装
 
 # B5~B7 口令：FunASR（中文）或 Whisper（英文）

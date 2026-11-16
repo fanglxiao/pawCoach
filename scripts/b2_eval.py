@@ -29,9 +29,9 @@ def label_at(segs, t: float) -> str:
     return "unclear"
 
 
-def evaluate(name: str, rules: PoseRules | None = None, verbose: bool = True) -> dict:
+def evaluate(name: str, rules: PoseRules | None = None, verbose: bool = True, use_detection: bool = False) -> dict:
     video = load_video(f"data/raw/{name}.mp4")
-    segs = SuperAnimalPoseExtractor(rules=rules, run_if_missing=False).extract(video)
+    segs = SuperAnimalPoseExtractor(rules=rules, run_if_missing=False, use_detection=use_detection).extract(video)
     truth = json.load(open(f"tests/fixtures/{name}_pose_labels.json"))["labels"]
 
     total = sum(s.t_end - s.t_start for s in segs)
@@ -60,5 +60,6 @@ def evaluate(name: str, rules: PoseRules | None = None, verbose: bool = True) ->
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("name")
+    ap.add_argument("--detect", action="store_true", help="加上 B3 的狗检测：狗不在画面的帧标 unclear")
     a = ap.parse_args()
-    evaluate(a.name)
+    evaluate(a.name, use_detection=a.detect)
