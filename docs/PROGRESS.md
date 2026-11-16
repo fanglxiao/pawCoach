@@ -73,7 +73,9 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 |---|---|
 | 合成样例视频（30 秒，无狗） | `data/raw/sample.mp4`、`data/raw/sample.meta.json` |
 | 真实狗视频（B 站，仅本机验证用） | `data/raw/dog1.mp4` |
-| 真实狗视频（YouTube，CC BY，供 B1 验证姿态） | `data/raw/dog2.mp4`，来源与许可记在 `data/sources.csv` |
+| 真实狗视频（YouTube，CC BY，供 B1 验证姿态） | `data/raw/dog2.mp4`（正面为主，17.5 秒），来源与许可记在 `data/sources.csv` |
+| 真实狗视频（YouTube，CC BY，侧面坐、起身，供 B2 验证判坐规则） | `data/raw/dog3.mp4`（404x720，55.5 秒，已裁掉黑边），来源与许可记在 `data/sources.csv` |
+| SuperAnimal 关键点结果 | `data/pose/*.h5`，验收图在 `reports/pose_keypoints_sample.png`（dog2）、`reports/pose_keypoints_dog3.png`（dog3） |
 | 分析结果 JSON | `results/sample.json`、`results/dog1.json` |
 | 落库 | `data/pawcoach.db` 的 `analyses` 表，`payload` 列存完整结果 |
 
@@ -83,14 +85,15 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 2. `ClaudeCoach` 的真实 API 调用路径没验证过。本机没有 `ANTHROPIC_API_KEY`，只验证了兜底分支。
 3. `yt-dlp` 只装在 `.venv` 里，没有写进 requirements。
 4. 网络：这台机器直连不了 GitHub、HuggingFace、Wikimedia Commons、Google，国内站点（B 站、清华 PyPI 镜像）可直连。国外站点要走本机代理 `127.0.0.1:7892`（macOS 系统代理已开启，HTTP、HTTPS、SOCKS 同一端口），但终端环境变量没有设代理，命令默认不会走它，需要显式指定，例如 `curl -x http://127.0.0.1:7892`、`yt-dlp --proxy http://127.0.0.1:7892`。已验证经代理可访问 GitHub、HuggingFace、Wikimedia Commons、Google、YouTube。代理软件没启动时国外站点会超时，所以 B1 下载 SuperAnimal 权重前要先确认代理在运行。
-5. 真实视频还没有一段是干净的「口令、坐下、保持、释放」完整过程。`dog1.mp4` 带字幕和讲解；`dog2.mp4`（比利时牧羊犬幼犬，单镜头，17.5 秒）是手势引导坐下，没有保持和释放，只适合验证姿态识别，保持时长没有真值可对。Wikimedia Commons 里没找到坐下训练类视频。
+5. 真实视频还没有一段是干净的「口令、坐下、保持、释放」完整过程。`dog1.mp4` 带字幕和讲解；`dog2.mp4`（比利时牧羊犬幼犬，正面为主，17.5 秒）是手势引导坐下，没有保持和释放；`dog3.mp4`（柯利犬，侧面，55.5 秒）反复坐下起身，每次只坐几秒，还带字幕和训练师。它们只适合验证姿态识别，保持时长没有真值可对。Wikimedia Commons 里没找到坐下训练类视频。
 6. 复核字段 `reviewer_correction`、`risk_flag` 等只在表里预留，还没有写入逻辑。
 7. 视频标准化只用合成素材验证过，没有真实 iPhone 或安卓视频。HDR（10-bit）、杜比视界、实况照片等情况没处理。标准化会把音轨压成 16kHz 单声道，原始音质不保留。
 8. `data/normalized/` 里的标准化产物不会自动清理，会随分析量增长。
 9. 阶段 B 要用单独的 Python 3.12 环境 `.venv-b`：deeplabcut 3.0.2 只支持到 3.12，而 `.venv` 是 3.13。两个环境不能混用，`analyze` 后续接入 SuperAnimal 时要处理这个问题（比如把姿态推理放进子进程，或把整个项目迁到 3.12）。
 10. SuperAnimal 推理速度：17.3 秒视频（518 帧）在 Apple 芯片 MPS 上用时 77.9 秒，约 4.5 倍实时。按这个速度 60 秒视频只姿态一项就要约 4.5 分钟，超过 D3 的「全流程 3 分钟」目标，需要降采样帧率、换小检测器或上 GPU。
-11. 关键点在狗位于画面边缘或被手挡住时会错位，B2 的规则必须用置信度过滤这类帧。
+11. 关键点在狗位于画面边缘、被手挡住、转身或快速起身时会错位，B2 的规则必须用置信度过滤这类帧。另外，狗不在画面里的帧（`dog3.mp4` 的片尾黑屏）仍有不少关键点置信度大于 0.3，只靠置信度判断「狗在不在」不可靠。
+12. 判坐用的信号（`tail_base_y - neck_base_y`）只在 `dog3.mp4` 的 8 个时刻对照画面看过，坐着时差值 128 到 205 像素，其他姿态在 -50 到 34 之间，能分开，但没有逐帧标注，不是准确率。像素差随狗在画面里的大小变化，必须按体长归一化。正面视角下这个信号没验证。
 
 ## 下一步
 
-按计划做 B2：写 `SuperAnimalPoseExtractor`，用关键点相对高度和角度判坐、站、卧，加时序平滑。注意 `dog2.mp4` 大部分是正面视角，正面看不出臀部高度，B2 可能需要一段侧面坐姿的视频来验证规则。
+按计划做 B2：写 `SuperAnimalPoseExtractor`，用关键点相对高度和角度判坐、站、卧，加时序平滑。侧面视频 `dog3.mp4` 已备好，B2 可以用它验证规则。三点要注意：高度差要用体长归一化；不能只靠关键点置信度判断狗在不在画面里；正面视角（dog2）怎么处理还没想好。
