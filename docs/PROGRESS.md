@@ -10,14 +10,14 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里姿态和口令仍是 stub，只有奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1～B3 完成，SuperAnimal 关键点推理、判坐站卧的规则、狗检测都在独立的 `.venv-b` 环境里跑通，但还没接进 `analyze`，等 B4 才替换姿态 stub。
+当前链路里口令仍是 stub，姿态和奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1～B4 完成，SuperAnimal 关键点推理、判坐站卧的规则、狗检测都已接进 `analyze`——在 `.venv-b`（3.12）里跑真姿态，在 `.venv`（3.13）里自动回退 stub。
 
 ## 总览
 
 | 阶段 | 内容 | 进度 |
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
-| B | 换真实现（姿态、口令、奖励合并） | 3 / 8 完成（B1、B2、B3） |
+| B | 换真实现（姿态、口令、奖励合并） | 4 / 8 完成（B1～B4） |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
 | D | 演示与准备 | 0 / 4，未开始 |
 
@@ -44,6 +44,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 |---|---|---|---|
 | B1 | SuperAnimal 安装 + 关键点推理 | `09102c4`、`7a18c70` | `reports/pose_keypoints_sample.png` 已生成，8 帧里关键点基本贴在狗身上；`dog2.mp4` 518 帧每帧都检测到了狗，平均置信度 0.50。详见 [reports/B1.md](../reports/B1.md) |
 | B2 | 姿态规则判坐、站、卧 + 时序平滑 | 见 git log | 侧面视频 `dog3.mp4` 逐秒对人工标注 44/50（88%），30 个「坐」全对；正面视频 `dog2.mp4` 全部降级成 `unclear`（1/13）；片段时长之和等于视频时长；`tests/` 共 24 个用例通过。详见 [reports/B2.md](../reports/B2.md) |
+| B4 | 姿态换真 + 跑通 + 记基线 | 见 git log | `.venv-b` 里 `analyze` 用 SuperAnimal 真实现、`.venv` 里回退 stub；dog3 出 1 轮 `hold=5.63s`、`ended_by=stand_up`，时间轴与肉眼看一致；35 个单测全过。详见 [reports/B4.md](../reports/B4.md) |
 | B3 | 狗检测与主狗跟踪 | 见 git log | 用 YOLOv8n 的 cat+dog 类找主狗，判断狗在不在画面；对 B2 的人工标注 dog3 50/50、dog2 13/13（贴边阈值是对着 dog3 调的）；dog3、dog1 里狗离开画面的区间都标出来了；`tests/` 共 35 个用例通过。详见 [reports/B3.md](../reports/B3.md) |
 
 ## 各模块真假状态
@@ -56,7 +57,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 事件对齐 | 纯规则 `align()` | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
 | 教练建议 | `TemplateCoach` 固定文本，`ClaudeCoach` 无 key 时兜底 | 模板文本 |
-| 姿态 | `StubPoseExtractor`，整段视频算一次 `sit`。`SuperAnimalPoseExtractor`（B2、B3）已写好，能读 SuperAnimal 关键点判坐、站、卧，并用 YOLO 检测框判断狗在不在画面；侧面视频上可用，正面视频降级成 `unclear`；但还没接进 `analyze`（B4 接） | **stub**（真实现已写好，未接入） |
+| 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |
 | 口令 | `StubAudioExtractor`，硬编码一组 cue、marker、release | **stub** |
 
 ## 真实视频验证
@@ -93,14 +94,14 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 6. 复核字段 `reviewer_correction`、`risk_flag` 等只在表里预留，还没有写入逻辑。
 7. 视频标准化只用合成素材验证过，没有真实 iPhone 或安卓视频。HDR（10-bit）、杜比视界、实况照片等情况没处理。标准化会把音轨压成 16kHz 单声道，原始音质不保留。
 8. `data/normalized/` 里的标准化产物不会自动清理，会随分析量增长。
-9. 阶段 B 要用单独的 Python 3.12 环境 `.venv-b`：deeplabcut 3.0.2 只支持到 3.12，而 `.venv` 是 3.13。两个环境不能混用，`analyze` 后续接入 SuperAnimal 时要处理这个问题（比如把姿态推理放进子进程，或把整个项目迁到 3.12）。
+9. 阶段 B 用单独的 Python 3.12 环境 `.venv-b`：deeplabcut 3.0.2 只支持到 3.12，而 `.venv` 是 3.13。B4 用「能不能 import pandas」在 `analyze` 里自动切换：`.venv-b` 跑真姿态，`.venv` 回退 stub（打印 `[姿态：stub…]`）。没做「子进程自动调 `.venv-b`」，所以在 `.venv` 里跑 `analyze` 仍是 stub 结果，要真姿态得用 `.venv-b/bin/python`。
 10. SuperAnimal 推理速度：17.3 秒视频（518 帧）在 Apple 芯片 MPS 上用时 77.9 秒，约 4.5 倍实时。按这个速度 60 秒视频只姿态一项就要约 4.5 分钟，超过 D3 的「全流程 3 分钟」目标，需要降采样帧率、换小检测器或上 GPU。
 11. 关键点在狗位于画面边缘、被手挡住、转身或快速起身时会错位，B2 的规则必须用置信度过滤这类帧。另外，狗不在画面里的帧（`dog3.mp4` 的片尾黑屏）仍有不少关键点置信度大于 0.3，只靠置信度判断「狗在不在」不可靠。
 12. 判坐用的信号（体轴倾角 `(tail_base_y - neck_base_y) / 体长`）在 `dog3.mp4`（侧面）上坐和站分得开（坐 0.83 到 0.97，站 -0.78 到 0.54），但只有这一只狗。正面视角下信号不可用，B2 把正面或背面降级成 `unclear`，所以正面拍摄的视频算不出保持时长。详见 [reports/B2.md](../reports/B2.md)。
 13. B2 的趴下（`down`）规则没有任何真实视频验证，只有合成关键点的单测。
-14. `SuperAnimalPoseExtractor` 读 H5 需要 pandas，狗检测需要 ultralytics，两者都只在 `.venv-b` 里有；接进 `analyze` 时要处理两个 Python 环境，另外要核对 H5 和检测框是对原视频还是对标准化后的视频跑的，坐标要对得上。
+14. 缓存（H5、dogbox）按视频文件名匹配，而 `analyze` 会先标准化：HEVC 视频（如 `dog1.mp4`）会被转码成 `data/normalized/dog1.norm.mp4`，按 `dog1` 存的缓存就对不上，真姿态报「找不到 H5」。dog2/dog3/sample 都是 h264+30fps+rotation0，标准化原样复用所以没踩到。关键点和检测框该对原视频还是标准化后视频跑（坐标、帧数会变）还没定，留到 B5～B8 或换新视频时决定。
 15. B3 的「狗在不在画面」只验证了 dog3、dog1、dog2 三段视频；贴边小框阈值（8%）是对着 dog3 调的；多只狗时只取一只，没有多狗视频验证。
 
 ## 下一步
 
-按计划做 B4：把 `SuperAnimalPoseExtractor` 接进 `analyze`，处理 `.venv`（3.13）与 `.venv-b`（3.12）两个环境，核对关键点和检测框的坐标对的是原视频还是标准化后的视频，重跑 `analyze` 并记基线。
+按计划做 B5：装口令识别（FunASR 中文或 Whisper 英文），先解决安装这个环境风险。

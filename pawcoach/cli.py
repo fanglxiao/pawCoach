@@ -45,12 +45,30 @@ def _cmd_normalize(args: argparse.Namespace) -> None:
     )
 
 
+def _make_pose_extractor():
+    """姿态提取器：优先 SuperAnimal 真实现（读已缓存的 H5 + 狗框），环境不支持则回退 stub。
+
+    两个 Python 环境（见 requirements-b.txt）：`.venv-b`（3.12）有 pandas/ultralytics/deeplabcut，
+    `.venv`（3.13）只有 numpy/pydantic/httpx。真实现读 H5 需要 pandas，所以在 `.venv` 里回退 stub。
+    姿态推理和狗检测只读缓存（`run_if_missing=False`），缓存缺失时明确报错，不在 analyze 里隐式跑模型。
+    """
+    try:
+        import pandas  # noqa: F401  读 SuperAnimal H5 需要
+    except ImportError:
+        from pawcoach.pose.stub import StubPoseExtractor
+
+        return StubPoseExtractor(), "stub（当前环境缺 pandas，姿态整段占位）"
+
+    from pawcoach.pose.superanimal import SuperAnimalPoseExtractor
+
+    return SuperAnimalPoseExtractor(run_if_missing=False, use_detection=True), "superanimal"
+
+
 def _cmd_analyze(args: argparse.Namespace) -> None:
     from pawcoach import store
     from pawcoach.audio.stub import StubAudioExtractor
     from pawcoach.coach.claude import ClaudeCoach
     from pawcoach.events.align import align
-    from pawcoach.pose.stub import StubPoseExtractor
     from pawcoach.reward.from_taps import TapRewardExtractor
     from pawcoach.schema import (
         AnalysisResult,
@@ -77,8 +95,10 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     # 2) meta（可选；不存在则用空 MetaInfo）
     meta = load_meta(meta_path) if meta_path.exists() else MetaInfo()
 
-    # 3) 三条流水线（阶段 A 用 stub，B 阶段换成真实现，编排不变）
-    pose = StubPoseExtractor().extract(video)
+    # 3) 三条流水线（阶段 B：姿态换真实现；环境缺 pandas 时回退 stub，编排不变）
+    pose_extractor, pose_impl = _make_pose_extractor()
+    print(f"[姿态：{pose_impl}]")
+    pose = pose_extractor.extract(video)
     audio = StubAudioExtractor().extract(video, meta)
     rewards = TapRewardExtractor().extract(meta, audio)
 
