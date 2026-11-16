@@ -10,14 +10,14 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里姿态和口令仍是 stub，只有奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。下一步是阶段 B，把姿态和口令换成真实现。
+当前链路里姿态和口令仍是 stub，只有奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1 完成，SuperAnimal 关键点推理在独立的 `.venv-b` 环境里跑通，但还没接进 `analyze`，等 B2、B4 完成后才替换姿态 stub。
 
 ## 总览
 
 | 阶段 | 内容 | 进度 |
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
-| B | 换真实现（姿态、口令、奖励合并） | 0 / 8，未开始 |
+| B | 换真实现（姿态、口令、奖励合并） | 1 / 8 完成（B1） |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
 | D | 演示与准备 | 0 / 4，未开始 |
 
@@ -38,6 +38,12 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 
 A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过。A10 验收见 [reports/A10.md](../reports/A10.md)。
 
+## 阶段 B 明细
+
+| 步骤 | 内容 | commit | 验收结果 |
+|---|---|---|---|
+| B1 | SuperAnimal 安装 + 关键点推理 | 见 git log | `reports/pose_keypoints_sample.png` 已生成，8 帧里关键点基本贴在狗身上；`dog2.mp4` 518 帧每帧都检测到了狗，平均置信度 0.50。详见 [reports/B1.md](../reports/B1.md) |
+
 ## 各模块真假状态
 
 | 模块 | 当前实现 | 是否真实 |
@@ -48,7 +54,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 事件对齐 | 纯规则 `align()` | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
 | 教练建议 | `TemplateCoach` 固定文本，`ClaudeCoach` 无 key 时兜底 | 模板文本 |
-| 姿态 | `StubPoseExtractor`，整段视频算一次 `sit` | **stub** |
+| 姿态 | `StubPoseExtractor`，整段视频算一次 `sit`。SuperAnimal 关键点推理已在 B1 跑通，但只是独立脚本，还没有判坐、站、卧的规则，也没接进 `analyze` | **stub** |
 | 口令 | `StubAudioExtractor`，硬编码一组 cue、marker、release | **stub** |
 
 ## 真实视频验证
@@ -81,7 +87,10 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 6. 复核字段 `reviewer_correction`、`risk_flag` 等只在表里预留，还没有写入逻辑。
 7. 视频标准化只用合成素材验证过，没有真实 iPhone 或安卓视频。HDR（10-bit）、杜比视界、实况照片等情况没处理。标准化会把音轨压成 16kHz 单声道，原始音质不保留。
 8. `data/normalized/` 里的标准化产物不会自动清理，会随分析量增长。
+9. 阶段 B 要用单独的 Python 3.12 环境 `.venv-b`：deeplabcut 3.0.2 只支持到 3.12，而 `.venv` 是 3.13。两个环境不能混用，`analyze` 后续接入 SuperAnimal 时要处理这个问题（比如把姿态推理放进子进程，或把整个项目迁到 3.12）。
+10. SuperAnimal 推理速度：17.3 秒视频（518 帧）在 Apple 芯片 MPS 上用时 77.9 秒，约 4.5 倍实时。按这个速度 60 秒视频只姿态一项就要约 4.5 分钟，超过 D3 的「全流程 3 分钟」目标，需要降采样帧率、换小检测器或上 GPU。
+11. 关键点在狗位于画面边缘或被手挡住时会错位，B2 的规则必须用置信度过滤这类帧。
 
 ## 下一步
 
-按计划做阶段 B。先做 B1（SuperAnimal 安装 + 关键点推理），它是 B 阶段唯一的环境风险点。
+按计划做 B2：写 `SuperAnimalPoseExtractor`，用关键点相对高度和角度判坐、站、卧，加时序平滑。注意 `dog2.mp4` 大部分是正面视角，正面看不出臀部高度，B2 可能需要一段侧面坐姿的视频来验证规则。
