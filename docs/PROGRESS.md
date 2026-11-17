@@ -10,7 +10,7 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。**C2 进度规则层完成**——`coach/rules.py` 纯函数（升档 +25% / 回退 -20% / 晚奖励改「标记时机」），11 个用例通过。**C3 LLMCoach 升级 + RAG SOP 完成**——`meta.json` 加可选 `target_hold`，`TemplateCoach`/`LLMCoach` 输出引用视频时间点的建议并注入规则层 + SOP 检索（`prompts/sop.md`）。
+当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。**C2 进度规则层完成**——`coach/rules.py` 纯函数（升档 +25% / 回退 -20% / 晚奖励改「标记时机」），11 个用例通过。**C3 LLMCoach 升级 + RAG SOP 完成**——`meta.json` 加可选 `target_hold`，`TemplateCoach`/`LLMCoach` 输出引用视频时间点的建议并注入规则层 + SOP 检索（`prompts/sop.md`）。**C4 安全层完成**——`meta.red_flags` 红旗（咆哮/龇牙/扑咬/恐惧/打/踢/猛拉）触发转介文本，不生成训练计划。
 
 ## 总览
 
@@ -18,7 +18,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
 | B | 换真实现（姿态、口令、奖励合并） | 8 / 8 完成（B1～B8） |
-| C | 判定、处方、安全 | 3 / 5（C1～C3 完成） |
+| C | 判定、处方、安全 | 4 / 5（C1～C4 完成） |
 | D | API 后端（前端由同事负责） | 0 / 2，未开始 |
 
 ## 阶段 A 明细
@@ -58,6 +58,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | C1 | 置信度门控 | 见 git log | `unclear` 片段（狗出画/低置信/正面）汇总成 `unclear_seconds`，低 conf 轮次经 `gate_trials` 不进 `summary`；`dog_visible_ratio` 接真（dog3 0.827，原硬编码 1.0）；coach 输出「本段有 19.3 秒无法可靠判断」；出画区间与 unclear 段实测对应；`tests/` 共 48 个用例通过。详见 [reports/C1.md](../reports/C1.md) |
 | C2 | 进度规则层 | 见 git log | `coach/rules.py` 纯函数 `plan_progress`（升档 +25% / 回退 -20% / 晚奖励改「标记时机」只拦升不拦回），`ProgressPlan` 输出目标时长+动作+重点；11 个用例覆盖每条规则分支；`tests/` 共 59 个用例通过。详见 [reports/C2.md](../reports/C2.md) |
 | C3 | LLMCoach 升级 + RAG SOP | 见 git log | `meta.json` 加可选 `target_hold`（目标时长来源，回退 median_hold）；`coach/sop.py` 关键词检索 `prompts/sop.md`（分级 SOP）；`LLMCoach` 注入规则层 + SOP + 历史，`TemplateCoach` 输出引用时间点建议（dog3 引用 11.0s/13.0s）；`tests/` 共 66 个用例通过。详见 [reports/C3.md](../reports/C3.md) |
+| C4 | 安全层 | 见 git log | `coach/safety.py` 硬规则：`red_flags` 红旗（咆哮/龇牙/扑咬/恐惧/打/踢/猛拉）→ 转介文本，不生成训练计划；coach 之前拦截；端到端验证（sample + `hitting` → 转介）；`tests/` 共 77 个用例通过。详见 [reports/C4.md](../reports/C4.md) |
 
 ## 各模块真假状态
 
@@ -71,6 +72,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 教练建议 | `TemplateCoach`（C3：引用时间点 + 规则层输出），`LLMCoach`（C3：注入规则层 + SOP + 历史）无 key 时兜底到模板；后端 OpenAI 兼容 `api.openai-next.com`（`LLM_API_KEY`/`LLM_MODEL`/`LLM_BASE_URL` 环境变量） | 模板文本（LLM 真实调用待 key） |
 | 进度规则层 | `coach/rules.py`（C2）：`plan_progress` 纯函数输出 `ProgressPlan`（目标时长/动作/重点） | 真实，已接进 coach（C3） |
 | SOP 检索 | `coach/sop.py`（C3）：`prompts/sop.md` 关键词检索 | 真实（简单关键词，不上向量库） |
+| 安全层 | `coach/safety.py`（C4）：`red_flags` 红旗 → 转介文本，不生成训练计划 | 真实（用户勾选，无自动检测） |
 | 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |
 | 口令 | `AsrAudioExtractor` 已接进 `analyze`（B7）：读 whisper 转写缓存，用 `meta` 口令词 + 同音表匹配输出 `AudioEvent[]`，`trials[].cue_t` 来自真实音频事件 | **真实**（B7 换真） |
 
@@ -119,4 +121,4 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 
 ## 下一步
 
-C1～C3 已完成。下一步 C4 安全层：写 `pawcoach/coach/safety.py`（硬规则，优先于一切输出）——识别到咆哮/龇牙/扑咬/明显恐惧（夹尾缩身躲避）或打/踢/猛拉 → **不生成训练计划**，输出转介建议（Vieira de Castro 2020）；MVP 用「用户勾选 + 大模型对逐帧/音频描述的识别」做，不训情绪模型。B8 遗留的跨轮奖励归因粗糙（dog3 第 1、2 轮都指向 `reward_t=13.0`）仍属 C 阶段切分/归因迭代项。
+C1～C4 已完成。下一步 C5 30 用例评估：写 30 个情景用例（含 5 个安全用例）到 `eval/coach_cases.yaml`，写 `pawcoach/cli.py` 的 `eval cases` 子命令跑一遍并记录结果。B8 遗留的跨轮奖励归因粗糙（dog3 第 1、2 轮都指向 `reward_t=13.0`）仍属 C 阶段切分/归因迭代项。

@@ -68,6 +68,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     from pawcoach import store
     from pawcoach.audio.asr import AsrAudioExtractor
     from pawcoach.coach.llm import LLMCoach
+    from pawcoach.coach.safety import referral_text, triggered_flags
     from pawcoach.events.align import align, gate_trials, unclear_seconds
     from pawcoach.reward.merged import MergedRewardExtractor
     from pawcoach.schema import (
@@ -131,8 +132,9 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
         target_hold=meta.target_hold,
     )
 
-    # 6) 教练建议（LLMCoach：无 key / 超时兜底到 TemplateCoach）
-    result.coach = LLMCoach().plan(result, [])
+    # 6) 教练建议（C4：安全层优先——有红旗 → 转介，不生成训练计划）
+    flags = triggered_flags(meta)
+    result.coach = referral_text(flags) if flags else LLMCoach().plan(result, [])
 
     # 7) 落库（数据飞轮从 A9 埋点）
     store.save_result(result)

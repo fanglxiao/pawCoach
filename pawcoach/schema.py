@@ -39,6 +39,7 @@ class MetaInfo:
     release_words: list[str] = field(default_factory=list) # 释放词，如 ["可以了", "走"]
     reward_taps: list[float] = field(default_factory=list) # 手动打点的奖励时刻（秒）
     target_hold: Optional[float] = None  # 本次训练的目标保持时长（秒），可选（C3 规则层用）
+    red_flags: list[str] = field(default_factory=list)  # 安全红旗（C4）：用户勾选的攻击/恐惧/打踢信号
 
 
 class MetaModel(BaseModel):
@@ -53,6 +54,7 @@ class MetaModel(BaseModel):
     release_words: list[str] = Field(default_factory=list) # 释放词
     reward_taps: list[float] = Field(default_factory=list) # 手动打点奖励时刻（秒）
     target_hold: Optional[float] = None  # 本次训练的目标保持时长（秒），可选
+    red_flags: list[str] = Field(default_factory=list)  # 安全红旗（C4）
 
 
 @dataclass
@@ -158,4 +160,5 @@ def load_meta(path: str | Path) -> MetaInfo:
         release_words=m.release_words,
         reward_taps=m.reward_taps,
         target_hold=m.target_hold,
+        red_flags=m.red_flags,
     )
