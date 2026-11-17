@@ -10,7 +10,7 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。**C2 进度规则层完成**——`coach/rules.py` 纯函数（升档 +25% / 回退 -20% / 晚奖励改「标记时机」），11 个用例通过。**C3 ClaudeCoach 升级 + RAG SOP 完成**——`meta.json` 加可选 `target_hold`，`TemplateCoach`/`ClaudeCoach` 输出引用视频时间点的建议并注入规则层 + SOP 检索（`prompts/sop.md`）。
+当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。**C2 进度规则层完成**——`coach/rules.py` 纯函数（升档 +25% / 回退 -20% / 晚奖励改「标记时机」），11 个用例通过。**C3 LLMCoach 升级 + RAG SOP 完成**——`meta.json` 加可选 `target_hold`，`TemplateCoach`/`LLMCoach` 输出引用视频时间点的建议并注入规则层 + SOP 检索（`prompts/sop.md`）。
 
 ## 总览
 
@@ -57,7 +57,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 |---|---|---|---|
 | C1 | 置信度门控 | 见 git log | `unclear` 片段（狗出画/低置信/正面）汇总成 `unclear_seconds`，低 conf 轮次经 `gate_trials` 不进 `summary`；`dog_visible_ratio` 接真（dog3 0.827，原硬编码 1.0）；coach 输出「本段有 19.3 秒无法可靠判断」；出画区间与 unclear 段实测对应；`tests/` 共 48 个用例通过。详见 [reports/C1.md](../reports/C1.md) |
 | C2 | 进度规则层 | 见 git log | `coach/rules.py` 纯函数 `plan_progress`（升档 +25% / 回退 -20% / 晚奖励改「标记时机」只拦升不拦回），`ProgressPlan` 输出目标时长+动作+重点；11 个用例覆盖每条规则分支；`tests/` 共 59 个用例通过。详见 [reports/C2.md](../reports/C2.md) |
-| C3 | ClaudeCoach 升级 + RAG SOP | 见 git log | `meta.json` 加可选 `target_hold`（目标时长来源，回退 median_hold）；`coach/sop.py` 关键词检索 `prompts/sop.md`（分级 SOP）；`ClaudeCoach` 注入规则层 + SOP + 历史，`TemplateCoach` 输出引用时间点建议（dog3 引用 11.0s/13.0s）；`tests/` 共 66 个用例通过。详见 [reports/C3.md](../reports/C3.md) |
+| C3 | LLMCoach 升级 + RAG SOP | 见 git log | `meta.json` 加可选 `target_hold`（目标时长来源，回退 median_hold）；`coach/sop.py` 关键词检索 `prompts/sop.md`（分级 SOP）；`LLMCoach` 注入规则层 + SOP + 历史，`TemplateCoach` 输出引用时间点建议（dog3 引用 11.0s/13.0s）；`tests/` 共 66 个用例通过。详见 [reports/C3.md](../reports/C3.md) |
 
 ## 各模块真假状态
 
@@ -68,7 +68,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 奖励打点 | `MergedRewardExtractor`（B8）：优先读 `meta.reward_taps`，没打点的轮次用 marker 兜底（`source="marker"`），visual 可选未做 | 真实 |
 | 事件对齐 | 纯规则 `align()`，C1 加了置信度门控（`unclear_seconds` / `gate_trials`） | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
-| 教练建议 | `TemplateCoach`（C3：引用时间点 + 规则层输出），`ClaudeCoach`（C3：注入规则层 + SOP + 历史）无 key 时兜底到模板 | 模板文本（Claude 真实调用未验证） |
+| 教练建议 | `TemplateCoach`（C3：引用时间点 + 规则层输出），`LLMCoach`（C3：注入规则层 + SOP + 历史）无 key 时兜底到模板 | 模板文本（LLM 真实调用未验证） |
 | 进度规则层 | `coach/rules.py`（C2）：`plan_progress` 纯函数输出 `ProgressPlan`（目标时长/动作/重点） | 真实，已接进 coach（C3） |
 | SOP 检索 | `coach/sop.py`（C3）：`prompts/sop.md` 关键词检索 | 真实（简单关键词，不上向量库） |
 | 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |
@@ -102,7 +102,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 ## 已知问题
 
 1. `pytest` 没写进 `requirements.txt`，新环境按 requirements 安装后跑不了 A7 的测试。
-2. `ClaudeCoach` 的真实 API 调用路径没验证过。本机没有 `ANTHROPIC_API_KEY`，只验证了兜底分支。
+2. `LLMCoach` 的真实 API 调用路径没验证过。本机没有 `LLM_API_KEY`，只验证了兜底分支。
 3. `yt-dlp` 只装在 `.venv` 里，没有写进 requirements。
 4. 网络：这台机器直连不了 GitHub、HuggingFace、Wikimedia Commons、Google，国内站点（B 站、清华 PyPI 镜像）可直连。国外站点要走本机代理 `127.0.0.1:7892`（macOS 系统代理已开启，HTTP、HTTPS、SOCKS 同一端口），但终端环境变量没有设代理，命令默认不会走它，需要显式指定，例如 `curl -x http://127.0.0.1:7892`、`yt-dlp --proxy http://127.0.0.1:7892`。已验证经代理可访问 GitHub、HuggingFace、Wikimedia Commons、Google、YouTube。代理软件没启动时国外站点会超时，所以 B1 下载 SuperAnimal 权重前要先确认代理在运行。
 5. 真实视频还没有一段是干净的「口令、坐下、保持、释放」完整过程。`dog1.mp4` 带字幕和讲解；`dog2.mp4`（比利时牧羊犬幼犬，正面为主，17.5 秒）是手势引导坐下，没有保持和释放；`dog3.mp4`（柯利犬，侧面，55.5 秒）反复坐下起身，每次只坐几秒，还带字幕和训练师。它们只适合验证姿态识别，保持时长没有真值可对。Wikimedia Commons 里没找到坐下训练类视频。

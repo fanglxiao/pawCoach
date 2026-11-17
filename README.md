@@ -36,7 +36,7 @@ python -m pawcoach.cli analyze data/raw/<video_id>.mp4 -o results/<video_id>.jso
 
 ## 技术栈
 
-Python 3.11 · ffmpeg · SuperAnimal / mmpose · Ultralytics YOLO · FunASR / Whisper · MediaPipe · FastAPI · SQLite · Claude API
+Python 3.11 · ffmpeg · SuperAnimal / mmpose · Ultralytics YOLO · FunASR / Whisper · MediaPipe · FastAPI · SQLite · LLM API
 
 ## 数据与许可
 

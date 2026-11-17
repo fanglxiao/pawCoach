@@ -245,7 +245,7 @@ pawCoach/
 └── tests/
 ```
 
-技术栈：Python 3.11、ffmpeg、PyTorch、DeepLabCut、Ultralytics YOLO、MediaPipe、FunASR、Whisper、FastAPI、SQLite、Claude API。
+技术栈：Python 3.11、ffmpeg、PyTorch、DeepLabCut、Ultralytics YOLO、MediaPipe、FunASR、Whisper、FastAPI、SQLite、LLM API。
 
 ---
 

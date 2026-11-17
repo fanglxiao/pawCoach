@@ -1,6 +1,7 @@
-"""Claude 教练：调 Claude API 生成建议；无 key / 超时则兜底到 TemplateCoach。
+"""LLM 教练：调大模型 API 生成建议；无 key / 超时则兜底到 TemplateCoach。
 
-C3：prompt 注入本次指标 + 历史趋势 + 规则层输出（ProgressPlan）+ 检索到的 SOP。
+命名不绑定具体厂商（Claude/OpenAI/…），当前后端是 Anthropic Messages API，
+换后端只改这里的请求实现。C3：prompt 注入本次指标 + 历史趋势 + 规则层输出 + SOP。
 原则：大模型只读结构化数字，不看视频（K9-Bench 依据）。
 """
 
@@ -18,13 +19,14 @@ from pawcoach.coach.template import TemplateCoach
 from pawcoach.schema import AnalysisResult, to_json
 
 
-class ClaudeCoach:
+class LLMCoach:
+    # 默认模型 claude-sonnet-5-5（当前 Anthropic 后端），可传 model 换其它模型
     def __init__(self, model: str = "claude-sonnet-5-5"):
         self.model = model
         self._fallback = TemplateCoach()
 
     def plan(self, result: AnalysisResult, history: list[AnalysisResult]) -> str:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        api_key = os.environ.get("LLM_API_KEY")
         if not api_key:
             return self._fallback.plan(result, history)
 

@@ -188,7 +188,7 @@ ffmpeg -version || brew install ffmpeg
 ```
 
 依赖分两档，**别第一天就卡在重依赖上**：
-- **阶段 A 必装**：`numpy`、`pydantic`、`httpx`（Claude API）。
+- **阶段 A 必装**：`numpy`、`pydantic`、`httpx`（LLM API）。
 - **阶段 B 再装**：`torch`、`ultralytics`（YOLO）、`deeplabcut`/SuperAnimal、`funasr`、`openai-whisper`。**这是环境安装的主要风险点，各自在 B 阶段由负责的人单独解决，不阻塞 A。**
 
 **验收**：`python -c "import numpy, pydantic, httpx"` 无报错；`ffmpeg -version` 有输出。
@@ -268,10 +268,10 @@ class RewardExtractor(Protocol):
 #### A8 · coach（⏱ 1.5h）
 
 - `pawcoach/coach/template.py`：`TemplateCoach.plan(...)` 返回固定文本（先跑通）。
-- `pawcoach/coach/claude.py`：`ClaudeCoach.plan(...)` 调 Claude API；**无 key / 超时就 fallback 到 TemplateCoach，不阻塞**。
+- `pawcoach/coach/llm.py`：`LLMCoach.plan(...)` 调 LLM API；**无 key / 超时就 fallback 到 TemplateCoach，不阻塞**。
 - 接口：`Coach.plan(result, history) -> str`。
 
-**验收**：`TemplateCoach().plan(empty_result, [])` 返回非空字符串；`ClaudeCoach` 无 key 时能兜底不抛异常。
+**验收**：`TemplateCoach().plan(empty_result, [])` 返回非空字符串；`LLMCoach` 无 key 时能兜底不抛异常。
 
 #### A9 · analyze 命令 + store（⏱ 1.5～2h）
 
@@ -411,7 +411,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 |---|---|---|
 | **C1** | 置信度门控 | 2h |
 | **C2** | 进度规则层 | 1.5h |
-| **C3** | ClaudeCoach 升级 + RAG SOP | 2h |
+| **C3** | LLMCoach 升级 + RAG SOP | 2h |
 | **C4** | 安全层 | 1.5h |
 | **C5** | 30 用例评估 | 1～2h |
 
@@ -432,9 +432,9 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 
 **验收**：`tests/test_rules.py` 覆盖每条规则的分支，全部通过。
 
-#### C3 · ClaudeCoach 升级 + RAG SOP（⏱ 2h）
+#### C3 · LLMCoach 升级 + RAG SOP（⏱ 2h）
 
-- `ClaudeCoach` 输入「本次指标 + 历史趋势 + 规则层输出 + 检索到的 Stay 分级 SOP（3s→10s→加干扰）」。
+- `LLMCoach` 输入「本次指标 + 历史趋势 + 规则层输出 + 检索到的 Stay 分级 SOP（3s→10s→加干扰）」。
 - 生成中文反馈：做得好的一点、最需改的一点、下次怎么练，**要求引用视频时间点**。
 - SOP 语料先用一个 `prompts/sop.md` 文本 + 简单关键词检索（CricRAG 思路的最小实现），不上向量库。
 
@@ -537,7 +537,7 @@ pawCoach/
 │   ├── audio/               # base.py + stub.py + asr.py
 │   ├── reward/              # base.py + from_taps.py + merged.py
 │   ├── events/              # align.py（对齐+置信度+指标）
-│   └── coach/               # template.py + claude.py + rules.py + safety.py
+│   └── coach/               # template.py + llm.py + rules.py + safety.py
 ├── eval/                    # coach_cases.yaml + 评估脚本
 ├── notebooks/
 ├── reports/                 # A1.md … D2.md（每步结论+基线）
@@ -554,7 +554,7 @@ pawCoach/
 |---|---|---|
 | SuperAnimal / torch 装不上 | B1～B4 | 换 mmpose（AP-10K/APT-36K 权重）；再不行保持 stub，姿态走「用户手动点选坐下起止」降级 |
 | FunASR 装不上 | B5～B7 | 只用 Whisper；再不行用户直接在 meta.json 填口令时刻 |
-| Claude API 无 key / 超时 | A8/C3 | TemplateCoach 兜底；离线准备 3~5 段预生成建议 |
+| LLM API 无 key / 超时 | A8/C3 | TemplateCoach 兜底；离线准备 3~5 段预生成建议 |
 | 公开视频带口令片段不够 | B6/B7 | 扩大关键词（中英文）；团队自拍补充 |
 | 奖励动作纯视觉不可靠 | B8 | 默认用户打点，视觉仅可选增强 |
 | 无同犬连续多日数据 | C3 | 同频道按时间排；不足用模拟数据并明确标注 |

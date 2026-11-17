@@ -67,7 +67,7 @@ def _make_pose_extractor():
 def _cmd_analyze(args: argparse.Namespace) -> None:
     from pawcoach import store
     from pawcoach.audio.asr import AsrAudioExtractor
-    from pawcoach.coach.claude import ClaudeCoach
+    from pawcoach.coach.llm import LLMCoach
     from pawcoach.events.align import align, gate_trials, unclear_seconds
     from pawcoach.reward.merged import MergedRewardExtractor
     from pawcoach.schema import (
@@ -131,8 +131,8 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
         target_hold=meta.target_hold,
     )
 
-    # 6) 教练建议（ClaudeCoach：无 key / 超时兜底到 TemplateCoach）
-    result.coach = ClaudeCoach().plan(result, [])
+    # 6) 教练建议（LLMCoach：无 key / 超时兜底到 TemplateCoach）
+    result.coach = LLMCoach().plan(result, [])
 
     # 7) 落库（数据飞轮从 A9 埋点）
     store.save_result(result)

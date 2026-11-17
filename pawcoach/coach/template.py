@@ -1,7 +1,7 @@
 """模板教练：确定性的建议文本，保证跑通、无外部依赖。
 
 C3 升级：消费规则层（ProgressPlan），输出引用视频时间点的三点建议。
-ClaudeCoach 无 key / 超时时兜底到这里。
+LLMCoach 无 key / 超时时兜底到这里。
 """
 
 from __future__ import annotations
