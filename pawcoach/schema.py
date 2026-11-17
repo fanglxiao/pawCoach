@@ -153,6 +153,11 @@ def load_meta(path: str | Path) -> MetaInfo:
     非法类型（如 reward_taps 里混入字符串）会抛出 pydantic 的 ValidationError。
     """
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    return meta_from_dict(raw)
+
+
+def meta_from_dict(raw: dict) -> MetaInfo:
+    """从 dict 构造 MetaInfo（app 后端上传的 meta JSON 解析用）。"""
     m = MetaModel.model_validate(raw)
     return MetaInfo(
         cues=m.cues,
