@@ -172,7 +172,7 @@ def to_json(result: AnalysisResult) -> str:
 | **A5** | 准备样例视频 + `meta.json` | 0.5h |
 | **A6** | 三个 stub 实现 | 1h |
 | **A7** | `events/align.py` 对齐 | 2h |
-| **A8** | `coach`（Template + Claude 兜底） | 1.5h |
+| **A8** | `coach`（Template + LLM 兜底） | 1.5h |
 | **A9** | `analyze` 命令 + `store.py` 落库 | 1.5～2h |
 | **A10** | 视频标准化（手机 HEVC / 竖屏旋转 / 变帧率） | 1～1.5h |
 
@@ -569,7 +569,7 @@ pawCoach/
 |---|---|---|---|
 | A 骨架与跑通 | A1～A10 | 13～17.5h | **一条命令跑通全链路**，`results/sample.json` 字段齐全；手机视频能标准化 |
 | B 换真实现 | B1～B8 | 14～20h | 真姿态/真口令/真奖励，`reports/B*.md` 基线齐全 |
-| C 判定+处方+安全 | C1～C5 | 8～12h | 置信度门控、规则、Claude 建议、安全转介、30 用例报告 |
+| C 判定+处方+安全 | C1～C5 | 8～12h | 置信度门控、规则、LLM 建议、安全转介、30 用例报告 |
 | D API 后端 | D1～D2 | 3～5h | FastAPI 上传→分析→查结果，接口契约可供前端对接 |
 | **合计** | | **38～55h** | 后端 API 可交付，前端由同事对接 |
 

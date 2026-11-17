@@ -32,7 +32,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 | A5 | 样例视频 + `meta.json` | `17bc26f` | 两个文件存在，meta 能被 pydantic 解析 |
 | A6 | 三个 stub 实现 | `805c99a` | 三个 extractor 各返回 list |
 | A7 | `events/align.py` 对齐 | `0d57286` | `tests/test_align.py` 2 个用例通过 |
-| A8 | `coach`（Template + Claude 兜底） | `6bc88c0` | Template 返回非空，Claude 无 key 兜底不抛异常 |
+| A8 | `coach`（Template + LLM 兜底） | `6bc88c0` | Template 返回非空，LLM 无 key 兜底不抛异常 |
 | A9 | `analyze` 命令 + `store.py` 落库 | `50830a2` | 输出 JSON 含 `video_id/quality/trials/summary/unpaired/coach` |
 | A10 | 视频标准化（手机 HEVC、竖屏旋转、变帧率） | 见 git log | 合成的 iPhone 风格素材转成 H.264、rotation=0、固定 30fps、方向摆正；`tests/` 共 12 个用例通过 |
 
@@ -68,7 +68,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 奖励打点 | `MergedRewardExtractor`（B8）：优先读 `meta.reward_taps`，没打点的轮次用 marker 兜底（`source="marker"`），visual 可选未做 | 真实 |
 | 事件对齐 | 纯规则 `align()`，C1 加了置信度门控（`unclear_seconds` / `gate_trials`） | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
-| 教练建议 | `TemplateCoach`（C3：引用时间点 + 规则层输出），`LLMCoach`（C3：注入规则层 + SOP + 历史）无 key 时兜底到模板 | 模板文本（LLM 真实调用未验证） |
+| 教练建议 | `TemplateCoach`（C3：引用时间点 + 规则层输出），`LLMCoach`（C3：注入规则层 + SOP + 历史）无 key 时兜底到模板；后端 OpenAI 兼容 `api.openai-next.com`（`LLM_API_KEY`/`LLM_MODEL`/`LLM_BASE_URL` 环境变量） | 模板文本（LLM 真实调用待 key） |
 | 进度规则层 | `coach/rules.py`（C2）：`plan_progress` 纯函数输出 `ProgressPlan`（目标时长/动作/重点） | 真实，已接进 coach（C3） |
 | SOP 检索 | `coach/sop.py`（C3）：`prompts/sop.md` 关键词检索 | 真实（简单关键词，不上向量库） |
 | 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |

@@ -1,7 +1,8 @@
-"""LLM 教练：调大模型 API 生成建议；无 key / 超时则兜底到 TemplateCoach。
+"""LLM 教练：调 OpenAI 兼容大模型 API 生成建议；无 key / 超时则兜底到 TemplateCoach。
 
-命名不绑定具体厂商（Claude/OpenAI/…），当前后端是 Anthropic Messages API，
-换后端只改这里的请求实现。C3：prompt 注入本次指标 + 历史趋势 + 规则层输出 + SOP。
+后端是黑客松额度赞助商提供的 OpenAI 兼容地址（默认 https://api.openai-next.com/v1/chat/completions）。
+base_url / model 可用 LLM_BASE_URL / LLM_MODEL 环境变量覆盖，key 从 LLM_API_KEY 读。
+C3：prompt 注入本次指标 + 历史趋势 + 规则层输出 + SOP。
 原则：大模型只读结构化数字，不看视频（K9-Bench 依据）。
 """
 
@@ -18,11 +19,16 @@ from pawcoach.coach.sop import retrieve_sop
 from pawcoach.coach.template import TemplateCoach
 from pawcoach.schema import AnalysisResult, to_json
 
+DEFAULT_BASE_URL = "https://api.openai-next.com/v1/chat/completions"
+# 默认模型名（OpenAI 兼容）。赞助商支持哪些模型待确认，先用 gpt-4o-mini，
+# 确认后用 LLM_MODEL 环境变量或构造参数覆盖，不用改代码。
+DEFAULT_MODEL = "gpt-4o-mini"
+
 
 class LLMCoach:
-    # 默认模型 claude-sonnet-5-5（当前 Anthropic 后端），可传 model 换其它模型
-    def __init__(self, model: str = "claude-sonnet-5-5"):
-        self.model = model
+    def __init__(self, model: str | None = None, base_url: str | None = None):
+        self.model = model or os.environ.get("LLM_MODEL", DEFAULT_MODEL)
+        self.base_url = base_url or os.environ.get("LLM_BASE_URL", DEFAULT_BASE_URL)
         self._fallback = TemplateCoach()
 
     def plan(self, result: AnalysisResult, history: list[AnalysisResult]) -> str:
@@ -35,10 +41,9 @@ class LLMCoach:
 
         try:
             resp = httpx.post(
-                "https://api.anthropic.com/v1/messages",
+                self.base_url,
                 headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
+                    "Authorization": f"Bearer {api_key}",
                     "content-type": "application/json",
                 },
                 json={
@@ -51,8 +56,9 @@ class LLMCoach:
                 timeout=30.0,
             )
             resp.raise_for_status()
-            text = "".join(b.get("text", "") for b in resp.json().get("content", []))
-            return text.strip() or self._fallback.plan(result, history)
+            data = resp.json()
+            text = (data.get("choices", [{}])[0].get("message", {}) or {}).get("content", "")
+            return (text or "").strip() or self._fallback.plan(result, history)
         except Exception:
             return self._fallback.plan(result, history)
 
