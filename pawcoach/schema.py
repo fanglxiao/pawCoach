@@ -42,6 +42,24 @@ class MetaInfo:
     red_flags: list[str] = field(default_factory=list)  # 安全红旗（C4）：用户勾选的攻击/恐惧/打踢信号
 
 
+# 常见口令默认表：不传 meta 时兜底，覆盖常见中英文口令；用户传自己的 meta 时整体覆盖这些默认。
+DEFAULT_CUES = ["坐", "坐下", "坐好", "sit", "sit down"]
+DEFAULT_MARKER_WORDS = ["好", "对", "真棒", "yes", "good"]
+DEFAULT_RELEASE_WORDS = ["可以了", "起来", "ok", "release", "free"]
+
+
+def default_meta() -> MetaInfo:
+    """不传 meta 时的默认配置：常见口令表兜底，让「只传视频」也能对口令分析。
+
+    用户传了自己的 meta（文件或 app 上传）时整体覆盖这些默认，不混用。
+    """
+    return MetaInfo(
+        cues=DEFAULT_CUES,
+        marker_words=DEFAULT_MARKER_WORDS,
+        release_words=DEFAULT_RELEASE_WORDS,
+    )
+
+
 class MetaModel(BaseModel):
     """meta.json 的 pydantic 校验模型（步骤 A5）。字段与 MetaInfo 一一对应。
 

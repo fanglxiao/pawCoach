@@ -14,7 +14,7 @@ from pawcoach.coach.llm import LLMCoach
 from pawcoach.coach.safety import referral_text, triggered_flags
 from pawcoach.events.align import align, gate_trials, unclear_seconds
 from pawcoach.reward.merged import MergedRewardExtractor
-from pawcoach.schema import AnalysisResult, MetaInfo, Quality, Summary, load_meta
+from pawcoach.schema import AnalysisResult, MetaInfo, Quality, Summary, default_meta, load_meta
 from pawcoach.video.normalize import normalize_video
 from pawcoach.video.probe import load_video
 
@@ -107,10 +107,10 @@ def analyze_video(
     norm = normalize_video(path, normalized_dir)
     video = load_video(norm.path)
 
-    # 2) meta
+    # 2) meta（可选；不存在则用常见口令默认表，用户传自己的 meta 时整体覆盖）
     if meta is None:
         meta_path = path.with_name(f"{video_id}.meta.json")
-        meta = load_meta(meta_path) if meta_path.exists() else MetaInfo()
+        meta = load_meta(meta_path) if meta_path.exists() else default_meta()
 
     # 3) 三条流水线
     pose_extractor, _ = _make_pose_extractor()

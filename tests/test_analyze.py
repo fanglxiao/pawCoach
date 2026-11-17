@@ -5,7 +5,7 @@
 """
 
 from pawcoach.analyze import _insufficient_data_text
-from pawcoach.schema import AnalysisResult, Quality, Summary
+from pawcoach.schema import AnalysisResult, Quality, Summary, default_meta
 
 
 def test_insufficient_data_text_is_honest():
@@ -28,3 +28,10 @@ def test_insufficient_data_text_no_unclear():
     text = _insufficient_data_text(result)
     assert "没有识别到可分析的训练轮次" in text
     assert "无法可靠判断" not in text
+
+
+def test_default_meta_has_common_cues():
+    m = default_meta()
+    assert "坐" in m.cues and "sit" in m.cues
+    assert "好" in m.marker_words and "yes" in m.marker_words
+    assert "可以了" in m.release_words and "ok" in m.release_words
