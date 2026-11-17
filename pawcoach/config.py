@@ -12,7 +12,8 @@ from pathlib import Path
 _ENV_PATH = Path(".env")
 
 _DEFAULTS = {
-    "model": "deepseek-flash",
+    # 模型名取自赞助商 /v1/models 列表（deepseek-v4-flash）；列表里没有「deepseek-flash」这个名字
+    "model": "deepseek-v4-flash",
     "base_url": "https://api.openai-next.com/v1/chat/completions",
     "api_key": "",
 }

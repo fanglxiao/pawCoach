@@ -27,7 +27,7 @@ def test_llm_config_defaults(monkeypatch, tmp_path):
     for k in ("LLM_MODEL", "LLM_API_KEY", "LLM_BASE_URL"):
         monkeypatch.delenv(k, raising=False)
     cfg = config.llm_config()
-    assert cfg["model"] == "deepseek-flash"
+    assert cfg["model"] == "deepseek-v4-flash"
     assert cfg["api_key"] == ""
     assert cfg["base_url"] == "https://api.openai-next.com/v1/chat/completions"
 
