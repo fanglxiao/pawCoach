@@ -38,6 +38,7 @@ class MetaInfo:
     marker_words: list[str] = field(default_factory=list)  # 标记词，如 ["好", "对"]
     release_words: list[str] = field(default_factory=list) # 释放词，如 ["可以了", "走"]
     reward_taps: list[float] = field(default_factory=list) # 手动打点的奖励时刻（秒）
+    target_hold: Optional[float] = None  # 本次训练的目标保持时长（秒），可选（C3 规则层用）
 
 
 class MetaModel(BaseModel):
@@ -51,6 +52,7 @@ class MetaModel(BaseModel):
     marker_words: list[str] = Field(default_factory=list)  # 标记词
     release_words: list[str] = Field(default_factory=list) # 释放词
     reward_taps: list[float] = Field(default_factory=list) # 手动打点奖励时刻（秒）
+    target_hold: Optional[float] = None  # 本次训练的目标保持时长（秒），可选
 
 
 @dataclass
@@ -134,6 +136,7 @@ class AnalysisResult:
     summary: Summary = field(default_factory=Summary)
     unpaired: list[dict] = field(default_factory=list)  # 无法配对的事件，作反馈素材
     coach: str = ""                                     # 教练建议文本
+    target_hold: Optional[float] = None                 # 本次训练目标保持时长（来自 meta，C3 规则层用）
 
 
 def to_json(result: AnalysisResult) -> str:
@@ -154,4 +157,5 @@ def load_meta(path: str | Path) -> MetaInfo:
         marker_words=m.marker_words,
         release_words=m.release_words,
         reward_taps=m.reward_taps,
+        target_hold=m.target_hold,
     )

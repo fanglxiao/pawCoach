@@ -128,6 +128,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
             median_hold=_median([t.hold for t in reliable if t.hold is not None]),
         ),
         unpaired=unpaired,
+        target_hold=meta.target_hold,
     )
 
     # 6) 教练建议（ClaudeCoach：无 key / 超时兜底到 TemplateCoach）

@@ -97,3 +97,28 @@ def plan_progress(
         new_hold = target_hold
 
     return ProgressPlan(target_hold=new_hold, action=action, focus=focus)
+
+
+def effective_target_hold(result: AnalysisResult) -> float:
+    """当前目标保持时长：优先 meta 的 target_hold，回退本次 median_hold，再回退默认 10s。
+
+    规则层（plan_progress）需要「当前目标」作起点；meta 没填（target_hold=None）时，
+    用本次实际中位保持时长对齐，两者都没有时用 10s（Sit-Stay 常见起点）。
+    """
+    if result.target_hold is not None:
+        return result.target_hold
+    if result.summary.median_hold is not None:
+        return result.summary.median_hold
+    return 10.0
+
+
+def sop_query_terms(plan: ProgressPlan) -> list[str]:
+    """从规则层计划构造 SOP 检索词（供 coach 检索 prompts/sop.md）。"""
+    terms = ["保持"]
+    if plan.focus == "标记时机":
+        terms += ["奖励", "标记", "零食", "晚"]
+    if plan.action == "increase":
+        terms += ["延长", "干扰", "进阶"]
+    elif plan.action == "decrease":
+        terms += ["入门", "3 秒", "基础"]
+    return terms
