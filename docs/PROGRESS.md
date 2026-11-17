@@ -19,7 +19,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
 | B | 换真实现（姿态、口令、奖励合并） | 8 / 8 完成（B1～B8） |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
-| D | 演示与准备 | 0 / 4，未开始 |
+| D | API 后端（前端由同事负责） | 0 / 2，未开始 |
 
 ## 阶段 A 明细
 
