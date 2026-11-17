@@ -17,7 +17,7 @@ from pathlib import Path
 
 from pawcoach.video.probe import VideoInfo, load_video
 
-TARGET_FPS = 30
+TARGET_FPS = 10  # D2 性能优化：Sit-Stay 姿态是秒级变化，10fps 足够；帧数降到 1/3，推理快 3 倍
 TARGET_CODEC = "h264"
 # 长边上限：手机常拍 4K，姿态与 ASR 用不到那么高的分辨率，缩小可显著降低后续耗时
 MAX_LONG_SIDE = 1280

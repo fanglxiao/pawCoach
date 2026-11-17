@@ -56,6 +56,7 @@ def run_inference(
 
 
 def find_h5(video: Path, pose_dir: Path) -> Path:
+    # 推理在标准化产物（如 dog3.norm.mp4）上跑，deeplabcut 按它的名字输出 H5，缓存键 = 推理视频名
     h5s = sorted(pose_dir.glob(f"{video.stem}_superanimal*.h5"))
     if not h5s:
         raise FileNotFoundError(f"{pose_dir} 里没有 {video.stem} 的 SuperAnimal 结果")

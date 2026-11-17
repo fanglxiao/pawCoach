@@ -22,11 +22,11 @@ NORMALIZED_DIR = "data/normalized"
 
 
 def _make_pose_extractor():
-    """姿态提取器：优先 SuperAnimal 真实现（读已缓存的 H5 + 狗框），环境不支持则回退 stub。
+    """姿态提取器：优先 SuperAnimal 真实现，环境不支持则回退 stub。
 
     两个 Python 环境（见 requirements-b.txt）：`.venv-b`（3.12）有 pandas/ultralytics/deeplabcut，
     `.venv`（3.13）只有 numpy/pydantic/httpx。真实现读 H5 需要 pandas，所以在 `.venv` 里回退 stub。
-    姿态推理和狗检测只读缓存（`run_if_missing=False`），缓存缺失时明确报错，不在 analyze 里隐式跑模型。
+    D2 降帧到 10fps 后推理约 80s，缓存缺失时自动推理（run_if_missing=True）可接受。
     """
     try:
         import pandas  # noqa: F401  读 SuperAnimal H5 需要
@@ -37,7 +37,7 @@ def _make_pose_extractor():
 
     from pawcoach.pose.superanimal import SuperAnimalPoseExtractor
 
-    return SuperAnimalPoseExtractor(run_if_missing=False, use_detection=True), "superanimal"
+    return SuperAnimalPoseExtractor(run_if_missing=True, use_detection=True), "superanimal"
 
 
 def _median(values: list[float]) -> float | None:

@@ -11,8 +11,8 @@ from pawcoach.video.probe import VideoInfo, _parse_rotation, load_video
 
 def _info(**kw) -> VideoInfo:
     base = dict(
-        path="x.mp4", duration=10.0, fps=30.0, width=1280, height=720,
-        has_audio=True, n_frames=300, codec="h264", rotation=0, is_vfr=False,
+        path="x.mp4", duration=10.0, fps=10.0, width=1280, height=720,
+        has_audio=True, n_frames=100, codec="h264", rotation=0, is_vfr=False,
     )
     base.update(kw)
     return VideoInfo(**base)
@@ -23,9 +23,9 @@ def test_standard_video_needs_nothing():
 
 
 def test_ntsc_fps_is_tolerated():
-    # 29.97 / 30.0005 这类取整差异不应触发转码
-    assert needs_normalize(_info(fps=29.97)) == []
-    assert needs_normalize(_info(fps=30.000496)) == []
+    # 9.97 / 10.0005 这类取整差异不应触发转码
+    assert needs_normalize(_info(fps=9.97)) == []
+    assert needs_normalize(_info(fps=10.000496)) == []
 
 
 def test_hevc_rotation_vfr_all_reported():
@@ -38,7 +38,7 @@ def test_hevc_rotation_vfr_all_reported():
 
 def test_constant_but_off_target_fps():
     reasons = needs_normalize(_info(fps=60.0))
-    assert reasons == ["帧率 60.00 → 30"]
+    assert reasons == ["帧率 60.00 → 10"]
 
 
 def test_large_resolution_uses_display_size():
@@ -108,7 +108,7 @@ def test_normalize_phone_clip_end_to_end(tmp_path):
     assert res.info.codec == "h264"
     assert res.info.rotation == 0
     assert res.info.is_vfr is False
-    assert abs(res.info.fps - 30.0) < 0.5
+    assert abs(res.info.fps - 10.0) < 0.5
     # 横屏素材 + 旋转标记 → 摆正后应是竖屏
     assert res.info.height > res.info.width
     assert res.info.has_audio is True
@@ -119,7 +119,7 @@ def test_already_standard_video_is_reused(tmp_path):
     std = tmp_path / "std.mp4"
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error",
-         "-f", "lavfi", "-i", "testsrc2=duration=1:size=320x180:rate=30",
+         "-f", "lavfi", "-i", "testsrc2=duration=1:size=320x180:rate=10",
          "-c:v", "libx264", "-pix_fmt", "yuv420p", str(std)],
         capture_output=True, text=True, check=True,
     )

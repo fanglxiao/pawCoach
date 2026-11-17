@@ -10,7 +10,7 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。**C2 进度规则层完成**——`coach/rules.py` 纯函数（升档 +25% / 回退 -20% / 晚奖励改「标记时机」），11 个用例通过。**C3 LLMCoach 升级 + RAG SOP 完成**——`meta.json` 加可选 `target_hold`，`TemplateCoach`/`LLMCoach` 输出引用视频时间点的建议并注入规则层 + SOP 检索（`prompts/sop.md`）。**C4 安全层完成**——`meta.red_flags` 红旗（咆哮/龇牙/扑咬/恐惧/打/踢/猛拉）触发转介文本，不生成训练计划。**C5 30 用例评估完成**——`eval cases` 跑 30 用例（25 规则 + 5 安全）30/30 全过，**阶段 C 全部完成**。**D1 FastAPI 后端完成**——`app/main.py`（`POST /analyze` 上传 + `GET /results/<id>` 查结果），`analyze_video` 抽到 `pawcoach/analyze.py` 供 cli 和 app 共用，curl 端到端验证通过。
+当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。**C2 进度规则层完成**——`coach/rules.py` 纯函数（升档 +25% / 回退 -20% / 晚奖励改「标记时机」），11 个用例通过。**C3 LLMCoach 升级 + RAG SOP 完成**——`meta.json` 加可选 `target_hold`，`TemplateCoach`/`LLMCoach` 输出引用视频时间点的建议并注入规则层 + SOP 检索（`prompts/sop.md`）。**C4 安全层完成**——`meta.red_flags` 红旗（咆哮/龇牙/扑咬/恐惧/打/踢/猛拉）触发转介文本，不生成训练计划。**C5 30 用例评估完成**——`eval cases` 跑 30 用例（25 规则 + 5 安全）30/30 全过，**阶段 C 全部完成**。**D1 FastAPI 后端完成**——`app/main.py`（`POST /analyze` 上传 + `GET /results/<id>` 查结果），`analyze_video` 抽到 `pawcoach/analyze.py` 供 cli 和 app 共用，curl 端到端验证通过。**D2 性能优化完成**——降帧 10fps，dog3 全流程 1m34s（≤3 分钟），**阶段 D 全部完成，A～D 四个阶段全部结束**。
 
 ## 总览
 
@@ -19,7 +19,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
 | B | 换真实现（姿态、口令、奖励合并） | 8 / 8 完成（B1～B8） |
 | C | 判定、处方、安全 | 5 / 5 完成（C1～C5） |
-| D | API 后端（前端由同事负责） | 1 / 2（D1 完成） |
+| D | API 后端（前端由同事负责） | 2 / 2 完成（D1～D2） |
 
 ## 阶段 A 明细
 
@@ -66,6 +66,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 步骤 | 内容 | commit | 验收结果 |
 |---|---|---|---|
 | D1 | FastAPI 后端 + 接口契约 | 见 git log | `app/main.py`：`POST /analyze` 上传（file + meta）+ `GET /results/<id>` 查结果，后台线程跑 `analyze_video`（抽到 `pawcoach/analyze.py` 供 cli/app 共用）；curl 端到端验证（上传 sample + meta → job_id → done 含完整 result）；`tests/` 共 83 个用例通过。详见 [reports/D1.md](../reports/D1.md) |
+| D2 | 性能优化 | 见 git log | 降帧 30→10fps（Sit-Stay 秒级变化够用），帧数降到 1/3，推理快 3 倍；缓存缺失自动推理（`run_if_missing=True`）；dog3（55.5s）删缓存后全流程计时 1m34s ≤ 3 分钟；`tests/` 共 83 个用例通过。详见 [reports/D2.md](../reports/D2.md) |
 
 ## 各模块真假状态
 
@@ -128,4 +129,4 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 
 ## 下一步
 
-D1 完成。下一步 D2 性能优化：60s 视频 3 分钟内出结果（抽帧 10fps、模型走 CPU 也先保证能出）。已知：SuperAnimal 推理约 4.5 倍实时（B 阶段已知问题），60s 视频只姿态一项约 4.5 分钟，超过 3 分钟目标，需要降采样帧率、换小检测器或上 GPU。B8 遗留的跨轮奖励归因粗糙（dog3 第 1、2 轮都指向 `reward_t=13.0`）仍属切分/归因迭代项。
+阶段 D 全部完成，A～D 四个阶段全部结束。下一步是比赛准备（前端同事对接 API + 彩排 + 演示许可署名），不在本开发计划内。B8 遗留的跨轮奖励归因粗糙（dog3 第 1、2 轮都指向 `reward_t=13.0`）仍属切分/归因迭代项。

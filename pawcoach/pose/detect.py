@@ -119,6 +119,7 @@ def detect_frames(video: Path, weights: str = DEFAULT_WEIGHTS, device: str = "au
 
 
 def track_path(video: Path, pose_dir: Path) -> Path:
+    # 检测在标准化产物上跑，缓存键 = 检测视频名（如 dog3.norm）
     return pose_dir / f"{video.stem}_dogbox.npy"
 
 
