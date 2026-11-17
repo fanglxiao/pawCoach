@@ -69,7 +69,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     from pawcoach.audio.asr import AsrAudioExtractor
     from pawcoach.coach.claude import ClaudeCoach
     from pawcoach.events.align import align
-    from pawcoach.reward.from_taps import TapRewardExtractor
+    from pawcoach.reward.merged import MergedRewardExtractor
     from pawcoach.schema import (
         AnalysisResult,
         MetaInfo,
@@ -100,7 +100,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     print(f"[姿态：{pose_impl}]")
     pose = pose_extractor.extract(video)
     audio = AsrAudioExtractor().extract(video, meta)
-    rewards = TapRewardExtractor().extract(meta, audio)
+    rewards = MergedRewardExtractor().extract(meta, audio)
 
     # 4) 对齐 → 轮次
     trials, unpaired = align(pose, audio, rewards, meta)
