@@ -1,7 +1,16 @@
 """LLMCoach 的单元测试：无 key 兜底、OpenAI 兼容响应解析。"""
 
+import pytest
+
+from pawcoach import config
 from pawcoach.coach.llm import LLMCoach
 from pawcoach.schema import AnalysisResult, Summary, Trial
+
+
+@pytest.fixture(autouse=True)
+def no_dotenv(monkeypatch, tmp_path):
+    # 测试不读真实 .env（可能含本地 key），指向不存在路径
+    monkeypatch.setattr(config, "_ENV_PATH", tmp_path / "nonexistent.env")
 
 
 def _result():

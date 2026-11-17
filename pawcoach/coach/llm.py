@@ -1,38 +1,34 @@
 """LLM 教练：调 OpenAI 兼容大模型 API 生成建议；无 key / 超时则兜底到 TemplateCoach。
 
-后端是黑客松额度赞助商提供的 OpenAI 兼容地址（默认 https://api.openai-next.com/v1/chat/completions）。
-base_url / model 可用 LLM_BASE_URL / LLM_MODEL 环境变量覆盖，key 从 LLM_API_KEY 读。
-C3：prompt 注入本次指标 + 历史趋势 + 规则层输出 + SOP。
+模型 / key / 地址是单独的配置项，集中在 pawcoach/config.py（读 .env 或环境变量），
+不散落在代码里。C3：prompt 注入本次指标 + 历史趋势 + 规则层输出 + SOP。
 原则：大模型只读结构化数字，不看视频（K9-Bench 依据）。
 """
 
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict
 
 import httpx
 
+from pawcoach.config import llm_config
 from pawcoach.coach.rules import effective_target_hold, plan_progress, sop_query_terms
 from pawcoach.coach.sop import retrieve_sop
 from pawcoach.coach.template import TemplateCoach
 from pawcoach.schema import AnalysisResult, to_json
 
-DEFAULT_BASE_URL = "https://api.openai-next.com/v1/chat/completions"
-# 默认模型名（OpenAI 兼容）。赞助商支持哪些模型待确认，先用 gpt-4o-mini，
-# 确认后用 LLM_MODEL 环境变量或构造参数覆盖，不用改代码。
-DEFAULT_MODEL = "gpt-4o-mini"
-
-
 class LLMCoach:
     def __init__(self, model: str | None = None, base_url: str | None = None):
-        self.model = model or os.environ.get("LLM_MODEL", DEFAULT_MODEL)
-        self.base_url = base_url or os.environ.get("LLM_BASE_URL", DEFAULT_BASE_URL)
+        self.model = model          # None 表示用配置（.env / 环境变量）
+        self.base_url = base_url    # 同上
         self._fallback = TemplateCoach()
 
     def plan(self, result: AnalysisResult, history: list[AnalysisResult]) -> str:
-        api_key = os.environ.get("LLM_API_KEY")
+        cfg = llm_config()
+        api_key = cfg["api_key"]
+        model = self.model or cfg["model"]
+        base_url = self.base_url or cfg["base_url"]
         if not api_key:
             return self._fallback.plan(result, history)
 
@@ -41,13 +37,13 @@ class LLMCoach:
 
         try:
             resp = httpx.post(
-                self.base_url,
+                base_url,
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "content-type": "application/json",
                 },
                 json={
-                    "model": self.model,
+                    "model": model,
                     "max_tokens": 600,
                     "messages": [
                         {"role": "user", "content": self._build_prompt(result, history, plan, sop)}
