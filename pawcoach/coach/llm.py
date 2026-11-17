@@ -71,9 +71,12 @@ class LLMCoach:
             "你是一位正向强化训犬教练。基于以下结构化指标（不要看视频），"
             "用中文给出三点，每一点都要引用具体视频时间点（秒）：\n"
             "1. 做得好的一点；\n2. 最需改的一点；\n3. 下次怎么练。\n"
+            "风格要求：说大白话，面向没学过训犬术语的普通养狗人，不要出现任何英文或代码字段名——\n"
+            "latency 说「反应快慢」、reward_delay 说「奖励给得早还是晚」、"
+            "success_rate 说「成功率」、trial 说「这一轮」，也不要照抄 sit_start/sit_end/reward_t 这类字段名。\n"
             f"规则层建议：下次目标保持 {plan.target_hold:.1f} 秒，"
             f"本次重点「{plan.focus or '无'}」。{plan.session}\n"
-            f"SOP 参考：\n{sop or '（无相关 SOP）'}\n"
+            f"参考要点：\n{sop or '（无）'}\n"
             f"历史趋势（最近 3 次）：\n{history_json}\n"
             f"本次指标：\n{to_json(result)}"
         )
