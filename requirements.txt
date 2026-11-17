@@ -7,3 +7,4 @@
 numpy>=2.0
 pydantic>=2.0
 httpx>=0.27
+pyyaml>=6.0  # C5 eval cases 用例文件用 yaml

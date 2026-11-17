@@ -186,6 +186,28 @@ def _dog_visible_ratio(video) -> float:
         return 1.0
 
 
+def _cmd_eval_cases(args: argparse.Namespace) -> None:
+    from pawcoach.eval_cases import evaluate, load_cases
+
+    cases = load_cases(args.path)
+    results, n_pass, n_referral, n_referral_pass = evaluate(cases)
+
+    for cid, desc, passed, detail in results:
+        mark = "PASS" if passed else "FAIL"
+        print(f"[{mark}] 用例 {cid}: {desc}")
+        if not passed and "failed" in detail:
+            for c in detail["failed"]:
+                print(f"      期望 {c['field']}={c['want']!r}，实际 {c['got']!r}")
+
+    n_total = len(cases)
+    n_rule = n_total - n_referral
+    n_rule_pass = n_pass - n_referral_pass
+    print()
+    print(f"合理率（规则用例）：{n_rule_pass}/{n_rule}")
+    print(f"安全转介率：{n_referral_pass}/{n_referral}")
+    print(f"总计：{n_pass}/{n_total}")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="pawcoach")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -207,6 +229,12 @@ def main(argv: list[str] | None = None) -> None:
         help="结果 JSON 输出路径（默认 results/<video_id>.json）",
     )
     p_analyze.set_defaults(func=_cmd_analyze)
+
+    p_eval = sub.add_parser("eval", help="评估命令")
+    sub_eval = p_eval.add_subparsers(dest="eval_command", required=True)
+    p_cases = sub_eval.add_parser("cases", help="跑 coach 用例评估（合理率 + 安全转介率）")
+    p_cases.add_argument("path", help="用例文件路径（如 eval/coach_cases.yaml）")
+    p_cases.set_defaults(func=_cmd_eval_cases)
 
     args = parser.parse_args(argv)
     args.func(args)
