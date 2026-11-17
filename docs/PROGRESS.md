@@ -10,14 +10,14 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里口令仍是 stub，姿态和奖励打点是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1～B6 完成——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor` 已写（B6），等 B7 接进 `analyze`。
+当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。阶段 B 已开始：B1～B7 完成——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor` 也已接进 `analyze`（B7），`trials[].cue_t` 来自真实音频事件。
 
 ## 总览
 
 | 阶段 | 内容 | 进度 |
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
-| B | 换真实现（姿态、口令、奖励合并） | 6 / 8 完成（B1～B6） |
+| B | 换真实现（姿态、口令、奖励合并） | 7 / 8 完成（B1～B7） |
 | C | 判定、处方、安全 | 0 / 5，未开始 |
 | D | 演示与准备 | 0 / 4，未开始 |
 
@@ -48,6 +48,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | B4 | 姿态换真 + 跑通 + 记基线 | 见 git log | `.venv-b` 里 `analyze` 用 SuperAnimal 真实现、`.venv` 里回退 stub；dog3 出 1 轮 `hold=5.63s`、`ended_by=stand_up`，时间轴与肉眼看一致；35 个单测全过。详见 [reports/B4.md](../reports/B4.md) |
 | B5 | 口令识别（Whisper）安装 | 见 git log | whisper base 装进 `.venv-b`，dog3（英文）和 dog1（中文）都转出带时间戳的转写；funasr 按计划「只留 Whisper 兜底」分支不装；sample 无语音是负样本。详见 [reports/B5.md](../reports/B5.md) |
 | B6 | 口令关键词事件 | 见 git log | `AsrAudioExtractor` 读 whisper 转写缓存，用 `meta` 口令词 + 同音表匹配，输出 `AudioEvent[]`；dog3（sit/yes/good）三类都对上、dog1（坐/好）命中（解说词假阳性）；`tests/` 共 40 个用例通过。详见 [reports/B6.md](../reports/B6.md) |
+| B7 | 口令换真 + 跑通 + 记基线 | 见 git log | `analyze` 的音频提取器换成 `AsrAudioExtractor`，dog3 出 4 轮、`cue_t=0.0/11.0/26.0/37.0` 来自真实音频事件（不再来自 stub）；`tests/` 共 40 个用例通过。详见 [reports/B7.md](../reports/B7.md) |
 
 ## 各模块真假状态
 
@@ -60,7 +61,7 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
 | 教练建议 | `TemplateCoach` 固定文本，`ClaudeCoach` 无 key 时兜底 | 模板文本 |
 | 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |
-| 口令 | `AsrAudioExtractor` 已写（B6）：读 whisper 转写缓存，用 `meta` 口令词 + 同音表匹配输出 `AudioEvent[]`。还没接进 `analyze`，`analyze` 里仍是 `StubAudioExtractor` | **真实现已就绪**（待 B7 接进 analyze） |
+| 口令 | `AsrAudioExtractor` 已接进 `analyze`（B7）：读 whisper 转写缓存，用 `meta` 口令词 + 同音表匹配输出 `AudioEvent[]`，`trials[].cue_t` 来自真实音频事件 | **真实**（B7 换真） |
 
 ## 真实视频验证
 
@@ -107,4 +108,4 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 
 ## 下一步
 
-按计划做 B7：把 `analyze` 里的 `StubAudioExtractor` 换成 `AsrAudioExtractor`，重跑 `analyze`，确认 `trials[].cue_t` 来自真实音频事件（不再来自 stub）。
+按计划做 B8：写 `pawcoach/reward/merged.py` 的 `MergedRewardExtractor`（优先级 tap > marker > visual），默认读 `meta.reward_taps`，没打点的轮次用最近 marker 事件兜底（`source="marker"`），`analyze` 换成它。

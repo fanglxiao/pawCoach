@@ -66,7 +66,7 @@ def _make_pose_extractor():
 
 def _cmd_analyze(args: argparse.Namespace) -> None:
     from pawcoach import store
-    from pawcoach.audio.stub import StubAudioExtractor
+    from pawcoach.audio.asr import AsrAudioExtractor
     from pawcoach.coach.claude import ClaudeCoach
     from pawcoach.events.align import align
     from pawcoach.reward.from_taps import TapRewardExtractor
@@ -99,7 +99,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     pose_extractor, pose_impl = _make_pose_extractor()
     print(f"[姿态：{pose_impl}]")
     pose = pose_extractor.extract(video)
-    audio = StubAudioExtractor().extract(video, meta)
+    audio = AsrAudioExtractor().extract(video, meta)
     rewards = TapRewardExtractor().extract(meta, audio)
 
     # 4) 对齐 → 轮次
