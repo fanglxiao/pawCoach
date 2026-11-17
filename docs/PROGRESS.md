@@ -10,7 +10,7 @@
 python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 ```
 
-当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。
+当前链路里口令、姿态、奖励打点都是真实现。手机视频（HEVC、竖屏旋转、变帧率）会在分析前自动标准化。**阶段 B 已完成：B1～B8 全部跑通**——SuperAnimal 关键点推理、判坐站卧规则、狗检测、Whisper 口令转写、口令关键词事件、口令换真、奖励合并都已跑通。姿态已接进 `analyze`（`.venv-b` 跑真姿态、`.venv` 回退 stub），口令提取器 `AsrAudioExtractor`（B7）、奖励提取器 `MergedRewardExtractor`（B8，tap > marker > visual）都已接进 `analyze`，`trials[].cue_t` 来自真实音频事件，没打点的轮次由 marker 兜底。**阶段 C 已开始：C1 置信度门控完成**——狗出画 / 低置信 / 正面视角的片段标成 `unclear`、汇总成 `unclear_seconds`，低 conf 轮次不进 `summary` 指标，`coach` 会说明「本段有 X 秒无法可靠判断」；`dog_visible_ratio` 也从占位改成了真值。
 
 ## 总览
 
@@ -18,7 +18,7 @@ python -m pawcoach.cli analyze data/raw/sample.mp4 -o results/sample.json
 |---|---|---|
 | A | 骨架与全链路跑通 | 10 / 10 完成（A10 视频标准化是后加的，因目标平台是安卓和 iOS） |
 | B | 换真实现（姿态、口令、奖励合并） | 8 / 8 完成（B1～B8） |
-| C | 判定、处方、安全 | 0 / 5，未开始 |
+| C | 判定、处方、安全 | 1 / 5（C1 完成） |
 | D | API 后端（前端由同事负责） | 0 / 2，未开始 |
 
 ## 阶段 A 明细
@@ -51,6 +51,12 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | B7 | 口令换真 + 跑通 + 记基线 | 见 git log | `analyze` 的音频提取器换成 `AsrAudioExtractor`，dog3 出 4 轮、`cue_t=0.0/11.0/26.0/37.0` 来自真实音频事件（不再来自 stub）；`tests/` 共 40 个用例通过。详见 [reports/B7.md](../reports/B7.md) |
 | B8 | 奖励合并（tap > marker > visual） | 见 git log | `MergedRewardExtractor` 接进 `analyze`：tap 直接读 `reward_taps`，没打点的轮次用 marker 兜底（`source="marker"`）；dog3（`reward_taps=[]`、3 个 `Yes.`）走 marker 兜底出 3 个奖励，`success_rate=1.0`（之前空打点时是 0.0）；`tests/` 共 45 个用例通过。详见 [reports/B8.md](../reports/B8.md) |
 
+## 阶段 C 明细
+
+| 步骤 | 内容 | commit | 验收结果 |
+|---|---|---|---|
+| C1 | 置信度门控 | 见 git log | `unclear` 片段（狗出画/低置信/正面）汇总成 `unclear_seconds`，低 conf 轮次经 `gate_trials` 不进 `summary`；`dog_visible_ratio` 接真（dog3 0.827，原硬编码 1.0）；coach 输出「本段有 19.3 秒无法可靠判断」；出画区间与 unclear 段实测对应；`tests/` 共 48 个用例通过。详见 [reports/C1.md](../reports/C1.md) |
+
 ## 各模块真假状态
 
 | 模块 | 当前实现 | 是否真实 |
@@ -58,9 +64,9 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 | 视频读取（probe、抽帧、抽音频） | ffmpeg | 真实 |
 | 视频标准化 | ffmpeg 转 H.264、固定 30fps、方向摆正；已符合标准则不转码 | 真实，只用合成素材验证过，没有真实 iPhone 或安卓视频 |
 | 奖励打点 | `MergedRewardExtractor`（B8）：优先读 `meta.reward_taps`，没打点的轮次用 marker 兜底（`source="marker"`），visual 可选未做 | 真实 |
-| 事件对齐 | 纯规则 `align()` | 真实，有单测 |
+| 事件对齐 | 纯规则 `align()`，C1 加了置信度门控（`unclear_seconds` / `gate_trials`） | 真实，有单测 |
 | 落库 | SQLite `data/pawcoach.db` | 真实 |
-| 教练建议 | `TemplateCoach` 固定文本，`ClaudeCoach` 无 key 时兜底 | 模板文本 |
+| 教练建议 | `TemplateCoach` 固定文本（C1 加了「X 秒无法可靠判断」），`ClaudeCoach` 无 key 时兜底 | 模板文本 |
 | 姿态 | `SuperAnimalPoseExtractor` 已接进 `analyze`：读 SuperAnimal 关键点判坐、站、卧，用 YOLO 检测框判断狗在不在画面。侧面视频可用，正面视频降级成 `unclear`。`.venv-b`（有 pandas）跑真实现，`.venv`（缺 pandas）回退 `StubPoseExtractor` 并打印提示 | **真实**（按环境回退） |
 | 口令 | `AsrAudioExtractor` 已接进 `analyze`（B7）：读 whisper 转写缓存，用 `meta` 口令词 + 同音表匹配输出 `AudioEvent[]`，`trials[].cue_t` 来自真实音频事件 | **真实**（B7 换真） |
 
@@ -109,4 +115,4 @@ A1 到 A9 的验收标准已在一次集中验证中逐项重跑，全部通过�
 
 ## 下一步
 
-阶段 B 已全部完成（B1～B8）。下一步进 C 阶段：C1 置信度门控——在 `align.py` 加聚合，把「狗不可见 / pose 低置信 / 音频无法辨认」正确地变成 `unclear` 或压低 `conf`，这些片段不进 `summary`，并在 `coach` 里说明「本段有 X 秒无法可靠判断」。B8 遗留的跨轮奖励归因粗糙（dog3 第 1、2 轮都指向 `reward_t=13.0`）也属 C 阶段切分/归因迭代项。
+C1 置信度门控已完成。下一步 C2 进度规则层：写 `pawcoach/coach/rules.py`（确定性、可测试、纯 Python）——最近 2 次成功率 ≥ 80% → 目标时长 +20～30%；成功率 < 50% → 回退上一档；`reward_delay > 1.0s` 占比 > 30% → 本次重点改「标记时机」；频率/时长每次 3～5 分钟、5～10 轮。B8 遗留的跨轮奖励归因粗糙（dog3 第 1、2 轮都指向 `reward_t=13.0`）仍属 C 阶段切分/归因迭代项。

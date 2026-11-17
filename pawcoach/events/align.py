@@ -21,6 +21,10 @@ from pawcoach.schema import (
 # 配对允许的时间容差（秒）
 _EPS = 0.1
 
+# 置信度门控阈值：trial 整体置信度低于此值 → 不进 summary 指标。
+# 照 dog3 实测（trial conf ≈ 0.48～0.55、pose_conf_mean 0.46）取 0.4，未做通用验证，见 reports/C1.md。
+CONF_GATE = 0.4
+
 
 def align(
     pose: list[PoseSegment],
@@ -99,3 +103,23 @@ def align(
             unpaired.append({"type": "sit_without_cue", "t_start": seg.t_start, "t_end": seg.t_end})
 
     return trials, unpaired
+
+
+def unclear_seconds(pose: list[PoseSegment]) -> float:
+    """pose 里 label=="unclear" 的片段总时长（狗出画 / 低置信 / 正面视角，见 B2/B3）。
+
+    这些片段不参与 trial 配对，也不进 summary 指标，只作为「本段有多少秒无法可靠判断」报告给 coach。
+    """
+    return round(sum(s.t_end - s.t_start for s in pose if s.label == "unclear"), 3)
+
+
+def gate_trials(
+    trials: list[Trial], conf_gate: float = CONF_GATE
+) -> tuple[list[Trial], list[Trial]]:
+    """置信度门控：把 trial 分成可靠（conf >= 阈值）与不可靠（conf < 阈值）两组。
+
+    可靠组进 summary 指标（success_rate / median_hold），不可靠组只在计数里体现、不进指标。
+    """
+    reliable = [t for t in trials if t.conf >= conf_gate]
+    unreliable = [t for t in trials if t.conf < conf_gate]
+    return reliable, unreliable

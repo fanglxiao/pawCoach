@@ -103,13 +103,21 @@ class Quality:
     dog_visible_ratio: float = 0.0
     audio_ok: bool = False
     pose_conf_mean: float = 0.0
+    unclear_seconds: float = 0.0   # 无法可靠判断的片段总时长（狗出画/低置信/正面视角）
+    unclear_ratio: float = 0.0     # unclear_seconds / 视频时长
 
 
 @dataclass
 class Summary:
-    """聚合指标。"""
+    """聚合指标。
+
+    trials 是识别到的总轮数；reliable_trials / unreliable_trials 是置信度门控（C1）后的分组。
+    success_rate / median_hold 只基于可靠轮次，低置信轮次不计入。
+    """
 
     trials: int = 0
+    reliable_trials: int = 0      # conf >= CONF_GATE 的轮数
+    unreliable_trials: int = 0    # conf < CONF_GATE 的轮数
     success_rate: Optional[float] = None
     median_hold: Optional[float] = None
 

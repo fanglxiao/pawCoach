@@ -68,7 +68,7 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     from pawcoach import store
     from pawcoach.audio.asr import AsrAudioExtractor
     from pawcoach.coach.claude import ClaudeCoach
-    from pawcoach.events.align import align
+    from pawcoach.events.align import align, gate_trials, unclear_seconds
     from pawcoach.reward.merged import MergedRewardExtractor
     from pawcoach.schema import (
         AnalysisResult,
@@ -105,22 +105,27 @@ def _cmd_analyze(args: argparse.Namespace) -> None:
     # 4) 对齐 → 轮次
     trials, unpaired = align(pose, audio, rewards, meta)
 
-    # 5) 聚合指标
-    holds = [t.hold for t in trials if t.hold is not None]
-    successes = [t for t in trials if t.reward_t is not None]
+    # 5) 聚合指标（C1：置信度门控——unclear 片段、低 conf 轮次不进 summary 指标）
     confs = [s.conf for s in pose]
+    reliable, _unreliable = gate_trials(trials)
+    unclear_s = unclear_seconds(pose)
+    duration = video.duration or 0.0
     result = AnalysisResult(
         video_id=video_id,
         quality=Quality(
-            dog_visible_ratio=1.0,
+            dog_visible_ratio=_dog_visible_ratio(video),
             audio_ok=video.has_audio,
             pose_conf_mean=(sum(confs) / len(confs)) if confs else 0.0,
+            unclear_seconds=unclear_s,
+            unclear_ratio=round(unclear_s / duration, 3) if duration > 0 else 0.0,
         ),
         trials=trials,
         summary=Summary(
             trials=len(trials),
-            success_rate=(len(successes) / len(trials)) if trials else None,
-            median_hold=_median(holds),
+            reliable_trials=len(reliable),
+            unreliable_trials=len(trials) - len(reliable),
+            success_rate=_success_rate(reliable),
+            median_hold=_median([t.hold for t in reliable if t.hold is not None]),
         ),
         unpaired=unpaired,
     )
@@ -151,6 +156,31 @@ def _median(values: list[float]) -> float | None:
     if n % 2:
         return ordered[mid]
     return round((ordered[mid - 1] + ordered[mid]) / 2, 2)
+
+
+def _success_rate(trials: list) -> float | None:
+    """可靠轮次里拿到奖励的比例；空列表返回 None（表示无数据，与旧行为一致）。"""
+    if not trials:
+        return None
+    return round(len([t for t in trials if t.reward_t is not None]) / len(trials), 3)
+
+
+def _dog_visible_ratio(video) -> float:
+    """狗完整在画面里的帧占比（B3 检测框 + 补洞）。只读 dogbox.npy 缓存，缺失回退 1.0 占位。
+
+    不触发推理：缓存不存在（新视频或 .venv 无 ultralytics）时直接回退，analyze 不该隐式跑 YOLO。
+    """
+    try:
+        import numpy as np
+        from pawcoach.pose.detect import in_frame_mask, track_path
+
+        path = track_path(Path(video.path), Path("data/pose"))
+        if not path.exists():
+            return 1.0
+        mask = in_frame_mask(np.load(path), video.fps, *video.display_size)
+        return round(float(mask.mean()), 3) if mask.size else 1.0
+    except Exception:
+        return 1.0
 
 
 def main(argv: list[str] | None = None) -> None:
