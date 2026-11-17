@@ -77,6 +77,20 @@ def _dog_visible_ratio(video) -> float:
         return 1.0
 
 
+def _insufficient_data_text(result: AnalysisResult) -> str:
+    """完全没有对齐结果（0 轮 + 0 未配对事件）时的诚实提示；不调 LLM，避免在空数据上编造细节。"""
+    q = result.quality
+    lines = ["【PawCoach 教练建议】", "这段视频没有识别到可分析的训练轮次。"]
+    if q.unclear_seconds > 0:
+        pct = round(q.unclear_ratio * 100)
+        lines.append(
+            f"其中 {q.unclear_seconds:.1f} 秒（约 {pct}%）无法可靠判断——"
+            "通常是狗出画、机位拍的是正面而不是侧面、或画面太远看不清。"
+        )
+    lines.append("建议换个能拍到狗侧面全身、且狗完整在画面里的机位，重拍一段再分析。")
+    return "\n".join(lines)
+
+
 def analyze_video(
     path: str | Path,
     normalized_dir: str = NORMALIZED_DIR,
@@ -133,9 +147,14 @@ def analyze_video(
         target_hold=meta.target_hold,
     )
 
-    # 6) coach（C4 安全层优先）
+    # 6) coach（C4 安全层优先；完全空数据时给诚实提示，不调 LLM 避免幻觉）
     flags = triggered_flags(meta)
-    result.coach = referral_text(flags) if flags else LLMCoach().plan(result, [])
+    if flags:
+        result.coach = referral_text(flags)
+    elif not result.trials and not result.unpaired:
+        result.coach = _insufficient_data_text(result)
+    else:
+        result.coach = LLMCoach().plan(result, [])
 
     # 7) 落库
     store.save_result(result)
